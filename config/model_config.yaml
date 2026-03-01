@@ -25,6 +25,21 @@ model:
     time_series_cv: true
     rolling_window: false      # 有足够数据，可以使用固定划分验证
     
+  # 数据源特定配置
+  data_source_specific:
+    local_csv:
+      # 本地CSV数据（4.5年）配置
+      use_simple_model: false
+      feature_selection_threshold: 0.01
+    qlib:
+      # Qlib数据（16年）配置
+      use_simple_model: false
+      feature_selection_threshold: 0.005  # 更多数据，可以使用更严格的特征选择
+    combined:
+      # 合并数据（21年）配置
+      use_simple_model: false
+      feature_selection_threshold: 0.003  # 大量数据，可以使用最严格的特征选择
+    
   # 特征选择
   feature_selection:
     method: "importance"
