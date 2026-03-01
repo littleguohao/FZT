@@ -1,28 +1,39 @@
 # model_config.yaml
 model:
-  name: "lightgbm"
-  type: "regression"
-  target: "return_2d"
+  # 模型类型: lightgbm 或 random_forest
+  type: "lightgbm"
   
+  # LightGBM参数
   lightgbm_params:
-    objective: "regression"
-    metric: "rmse"
-    boosting_type: "gbdt"
-    num_leaves: 31
+    objective: "binary"  # 二分类（成功/失败）
+    metric: "accuracy"
     learning_rate: 0.05
-    feature_fraction: 0.9
-    bagging_fraction: 0.8
-    bagging_freq: 5
-    verbose: 0
+    num_leaves: 31
+    max_depth: 5
+    random_state: 42
+    n_estimators: 100
+    early_stopping_rounds: 10
     
+  # 随机森林参数（备用）
+  random_forest_params:
+    n_estimators: 100
+    max_depth: 5
+    random_state: 42
+    n_jobs: -1
+    
+  # 训练配置
   training:
-    early_stopping_rounds: 50
-    num_boost_round: 1000
-    verbose_eval: 100
-    
-  validation:
+    target_col: "target"
+    threshold: 0.0  # 分类阈值（大于阈值为正类）
     cv_folds: 5
     time_series_cv: true
+    
+  # 特征配置
+  features:
+    exclude_cols: ["stock_code", "date", "target"]
+    normalize: true
+    feature_selection: true
+    selected_features: 50
     rolling_window: false      # 有足够数据，可以使用固定划分验证
     
   # 数据源特定配置

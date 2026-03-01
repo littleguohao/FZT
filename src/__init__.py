@@ -18,6 +18,8 @@ from .data_prep import DataPreprocessor
 from .fzt_formula import FZTFormula, calculate_target, create_sample_data
 from .fzt_brick_formula import FZTBrickFormula
 from .feature_eng import FeatureEngineer
+from .model_train import ModelTrainer
+from .evaluate import ModelEvaluator
 from .hybrid_data_processor import HybridDataProcessor
 
 __all__ = [
@@ -25,6 +27,8 @@ __all__ = [
     "FZTFormula",
     "FZTBrickFormula",
     "FeatureEngineer",
+    "ModelTrainer",
+    "ModelEvaluator",
     "HybridDataProcessor",
     "calculate_target",
     "create_sample_data"
