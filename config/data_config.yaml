@@ -1,8 +1,8 @@
-# data_config.yaml - 使用本地A股数据
+# data_config.yaml - 使用完整本地A股数据
 data:
   source: "local_csv"
-  data_path: "/Users/lucky/.openclaw/workspace/ZGNB/B1_DATA/"
-  file_pattern: "*.csv"
+  data_path: "/Users/lucky/Downloads/O_DATA/"
+  file_pattern: "*-all-latest.csv"
   
   # 数据字段映射（CSV列名 -> 标准字段名）
   field_mapping:
@@ -14,25 +14,29 @@ data:
     close: "Close"
     volume: "Volume"
     amount: "Amount"
-    forward_factor: "ForwardFactor"
-  
+    # 注意：这个数据集没有ForwardFactor字段
+    
   # 时间范围配置
-  # 注意：本地CSV数据时间范围有限（约2025年3月-9月）
-  # 采用滚动时间窗口策略，而不是传统的训练/验证/测试划分
+  # 数据时间范围：约2021年 - 2026年（4-5年数据）
   time_ranges:
-    # 数据可用范围（根据实际文件时间戳）
-    data_start: "2025-03-01"
-    data_end: "2025-09-30"
+    # 完整数据时间范围
+    data_start: "2021-01-01"
+    data_end: "2026-12-31"
     
-    # 滚动窗口配置
+    # 训练/验证/测试时间划分
+    train_start: "2021-01-01"
+    train_end: "2023-12-31"   # 3年训练数据
+    valid_start: "2024-01-01"
+    valid_end: "2024-12-31"   # 1年验证数据
+    test_start: "2025-01-01"
+    test_end: "2026-02-06"    # 约1年测试数据（到最新数据）
+    
+    # 也可以使用滚动窗口（可选）
+    use_rolling_window: false  # 有足够数据，可以使用固定划分
     rolling_window:
-      window_size: 60  # 训练窗口大小（交易日）
-      step_size: 20    # 滚动步长（交易日）
-      min_train_size: 40  # 最小训练数据量
-    
-    # 由于数据有限，采用时间序列交叉验证而不是固定划分
-    validation_method: "time_series_cv"
-    cv_folds: 3
+      window_size: 252  # 1年交易日的训练窗口
+      step_size: 63     # 约1个季度的滚动步长
+      min_train_size: 126  # 最小半年数据
   
   # 特征配置
   features:

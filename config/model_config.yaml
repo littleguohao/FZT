@@ -16,14 +16,14 @@ model:
     verbose: 0
     
   training:
-    early_stopping_rounds: 20  # 数据有限，减少早停轮数
-    num_boost_round: 500       # 数据有限，减少训练轮数
-    verbose_eval: 50
+    early_stopping_rounds: 50
+    num_boost_round: 1000
+    verbose_eval: 100
     
   validation:
-    cv_folds: 3                # 数据有限，减少交叉验证折数
+    cv_folds: 5
     time_series_cv: true
-    rolling_window: true       # 使用滚动窗口验证
+    rolling_window: false      # 有足够数据，可以使用固定划分验证
     
   # 特征选择
   feature_selection:
