@@ -17,14 +17,22 @@ data:
     forward_factor: "ForwardFactor"
   
   # 时间范围配置
+  # 注意：本地CSV数据时间范围有限（约2025年3月-9月）
+  # 采用滚动时间窗口策略，而不是传统的训练/验证/测试划分
   time_ranges:
-    # 根据实际数据时间范围调整
-    train_start: "2025-01-01"
-    train_end: "2025-06-30"
-    valid_start: "2025-07-01"
-    valid_end: "2025-08-31"
-    test_start: "2025-09-01"
-    test_end: "2025-12-31"
+    # 数据可用范围（根据实际文件时间戳）
+    data_start: "2025-03-01"
+    data_end: "2025-09-30"
+    
+    # 滚动窗口配置
+    rolling_window:
+      window_size: 60  # 训练窗口大小（交易日）
+      step_size: 20    # 滚动步长（交易日）
+      min_train_size: 40  # 最小训练数据量
+    
+    # 由于数据有限，采用时间序列交叉验证而不是固定划分
+    validation_method: "time_series_cv"
+    cv_folds: 3
   
   # 特征配置
   features:
