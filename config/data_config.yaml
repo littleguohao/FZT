@@ -1,0 +1,50 @@
+# data_config.yaml - 使用本地A股数据
+data:
+  source: "local_csv"
+  data_path: "/Users/lucky/.openclaw/workspace/ZGNB/B1_DATA/"
+  file_pattern: "*.csv"
+  
+  # 数据字段映射（CSV列名 -> 标准字段名）
+  field_mapping:
+    date: "Date"
+    code: "Code"
+    open: "Open"
+    high: "High"
+    low: "Low"
+    close: "Close"
+    volume: "Volume"
+    amount: "Amount"
+    forward_factor: "ForwardFactor"
+  
+  # 时间范围配置
+  time_ranges:
+    # 根据实际数据时间范围调整
+    train_start: "2025-01-01"
+    train_end: "2025-06-30"
+    valid_start: "2025-07-01"
+    valid_end: "2025-08-31"
+    test_start: "2025-09-01"
+    test_end: "2025-12-31"
+  
+  # 特征配置
+  features:
+    fzt_formula: true
+    technical_factors:
+      - "momentum"
+      - "volatility"
+      - "volume"
+      - "price_action"
+      - "technical_indicators"
+    
+  # 数据处理配置
+  processing:
+    normalize: true
+    fill_na: true
+    remove_outliers: true
+    forward_fill: true  # 使用前复权因子调整价格
+    
+  # 股票筛选
+  stock_filter:
+    min_days: 60  # 最少交易日数
+    exclude_st: true  # 排除ST股票
+    exclude_suspended: true  # 排除停牌股票

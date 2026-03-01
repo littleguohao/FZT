@@ -1,0 +1,35 @@
+# model_config.yaml
+model:
+  name: "lightgbm"
+  type: "regression"
+  target: "return_2d"
+  
+  lightgbm_params:
+    objective: "regression"
+    metric: "rmse"
+    boosting_type: "gbdt"
+    num_leaves: 31
+    learning_rate: 0.05
+    feature_fraction: 0.9
+    bagging_fraction: 0.8
+    bagging_freq: 5
+    verbose: 0
+    
+  training:
+    early_stopping_rounds: 50
+    num_boost_round: 1000
+    verbose_eval: 100
+    
+  validation:
+    cv_folds: 5
+    time_series_cv: true
+    
+  # 特征选择
+  feature_selection:
+    method: "importance"
+    threshold: 0.01  # 重要性阈值
+    
+  # 预测配置
+  prediction:
+    horizon: 2  # 预测未来2天
+    top_n: 10   # 每日选股数量
