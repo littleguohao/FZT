@@ -17,12 +17,14 @@ __email__ = "fzt-project@example.com"
 from .data_prep import DataPreprocessor
 from .fzt_formula import FZTFormula, calculate_target, create_sample_data
 from .fzt_brick_formula import FZTBrickFormula
+from .feature_eng import FeatureEngineer
 from .hybrid_data_processor import HybridDataProcessor
 
 __all__ = [
     "DataPreprocessor",
     "FZTFormula",
     "FZTBrickFormula",
+    "FeatureEngineer",
     "HybridDataProcessor",
     "calculate_target",
     "create_sample_data"
