@@ -3,8 +3,9 @@
 
 # ========== 数据源配置 ==========
 data:
-  # 数据源选择：local_csv | qlib | combined
-  source: "local_csv"
+  # 数据源选择：local_csv | qlib | combined | hybrid
+  # hybrid: Qlib数据用于训练验证，本地CSV用于测试
+  source: "hybrid"
   
   # ---------- 本地CSV数据配置 ----------
   local_csv:
@@ -27,7 +28,7 @@ data:
   
   # ---------- Qlib数据配置 ----------
   qlib:
-    enabled: false  # 设置为true以启用Qlib数据
+    enabled: true  # 启用Qlib数据用于训练验证
     provider_uri: "~/.qlib/qlib_data/cn_data"
     region: "cn"
     # Qlib测试数据集时间范围：2005-01-01 到 2020-12-31（16年）
@@ -38,6 +39,14 @@ data:
     enabled: false  # 设置为true以合并本地和Qlib数据
     strategy: "union"  # union | intersection
     # 合并后的时间范围：2005-01-01 到 2026-02-06（约21年）
+  
+  # ---------- 混合数据配置 ----------
+  hybrid:
+    enabled: true  # 启用混合数据模式
+    # 训练/验证使用Qlib数据 (2005-2020)
+    train_val_source: "qlib"
+    # 测试使用本地CSV数据 (2021-2026)
+    test_source: "local_csv"
 
 # ========== 时间范围配置 ==========
 time_ranges:
@@ -79,6 +88,25 @@ time_ranges:
     valid_end: "2020-12-31"   # 2年验证
     test_start: "2021-01-01"
     test_end: "2026-02-06"    # 约5年测试
+  
+  # ---------- 混合数据时间范围 ----------
+  # 训练验证：Qlib数据 (2005-2020)
+  # 测试：本地CSV数据 (2021-2026)
+  hybrid:
+    # Qlib数据用于训练验证
+    qlib:
+      data_start: "2005-01-01"
+      data_end: "2020-12-31"
+      train_start: "2005-01-01"
+      train_end: "2017-12-31"   # 13年训练
+      valid_start: "2018-01-01"
+      valid_end: "2020-12-31"   # 3年验证
+    # 本地CSV数据用于测试
+    local_csv:
+      data_start: "2021-08-01"
+      data_end: "2026-02-06"
+      test_start: "2021-08-01"
+      test_end: "2026-02-06"    # 约4.5年测试
   
   # ---------- 滚动窗口配置（可选） ----------
   use_rolling_window: false

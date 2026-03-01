@@ -95,13 +95,31 @@ class DataPreprocessor:
                 raise ValueError(f"配置文件中缺少必要部分: {section}")
         
         # 验证数据源配置
-        if self.config['data']['source'] != 'local_csv':
-            raise ValueError(f"当前仅支持local_csv数据源，配置为: {self.config['data']['source']}")
+        valid_sources = ['local_csv', 'qlib', 'combined', 'hybrid']
+        if self.config['data']['source'] not in valid_sources:
+            raise ValueError(f"不支持的数据源: {self.config['data']['source']}，有效值: {valid_sources}")
         
-        # 验证本地CSV配置
-        local_csv_config = self.config['data']['local_csv']
-        if not local_csv_config.get('enabled', False):
-            raise ValueError("本地CSV数据源未启用")
+        # 根据数据源验证配置
+        source = self.config['data']['source']
+        if source == 'local_csv':
+            local_csv_config = self.config['data']['local_csv']
+            if not local_csv_config.get('enabled', False):
+                raise ValueError("本地CSV数据源未启用")
+        elif source == 'qlib':
+            qlib_config = self.config['data']['qlib']
+            if not qlib_config.get('enabled', False):
+                raise ValueError("Qlib数据源未启用")
+        elif source == 'hybrid':
+            hybrid_config = self.config['data']['hybrid']
+            if not hybrid_config.get('enabled', False):
+                raise ValueError("混合数据模式未启用")
+            # 验证混合数据源配置
+            train_val_source = hybrid_config.get('train_val_source')
+            test_source = hybrid_config.get('test_source')
+            if train_val_source not in ['qlib']:
+                raise ValueError(f"混合模式训练验证数据源必须是qlib，当前: {train_val_source}")
+            if test_source not in ['local_csv']:
+                raise ValueError(f"混合模式测试数据源必须是local_csv，当前: {test_source}")
         
         # 验证字段映射
         required_fields = ['date', 'code', 'open', 'high', 'low', 'close', 'volume', 'amount']
@@ -122,11 +140,15 @@ class DataPreprocessor:
         logger.info("开始加载原始CSV数据...")
         
         # 查找匹配的文件
-        pattern = self.file_pattern.replace("*", "*.csv")
-        data_files = list(self.data_path.glob(pattern))
+        data_files = list(self.data_path.glob(self.file_pattern))
         
         if not data_files:
-            raise FileNotFoundError(f"未找到匹配的文件: {self.data_path}/{self.file_pattern}")
+            # 尝试另一种匹配方式
+            data_files = list(self.data_path.glob("*.csv"))
+            if not data_files:
+                raise FileNotFoundError(f"未找到匹配的文件: {self.data_path}/{self.file_pattern}")
+            else:
+                logger.info(f"使用通配符找到 {len(data_files)} 个CSV文件")
         
         logger.info(f"找到 {len(data_files)} 个数据文件")
         
@@ -296,10 +318,14 @@ class DataPreprocessor:
         # 2. ST股票排除（如果可识别）
         if self.filter_config.get('exclude_st', True):
             # 假设ST股票代码以"ST"开头或包含"ST"
-            st_patterns = ['ST', '*ST', 'S*T']
-            st_mask = df['code'].str.contains('|'.join(st_patterns), case=False)
+            # 注意：需要转义正则表达式特殊字符
+            st_patterns = [r'^ST', r'^.*ST.*$', r'^\*ST', r'^S\*T']
+            pattern = '|'.join(st_patterns)
+            st_mask = df['code'].str.contains(pattern, case=False, regex=True)
+            removed_count = st_mask.sum()
             df = df[~st_mask]
-            logger.info(f"排除ST股票: 移除 {st_mask.sum()} 条记录")
+            if removed_count > 0:
+                logger.info(f"排除ST股票: 移除 {removed_count} 条记录")
         
         # 3. 价格范围过滤（已在异常值处理中完成）
         
@@ -326,42 +352,125 @@ class DataPreprocessor:
         Returns:
             Dict[str, pd.DataFrame]: 划分后的数据集
         """
-        logger.info("按时间划分数据集...")
+        logger.info(f"按时间划分数据集 (数据源: {self.source})...")
         
         # 获取对应数据源的时间范围配置
         if self.source == 'local_csv':
             time_config = self.time_ranges['local_csv']
+            
+            # 转换为datetime
+            train_start = pd.to_datetime(time_config['train_start'])
+            train_end = pd.to_datetime(time_config['train_end'])
+            valid_start = pd.to_datetime(time_config['valid_start'])
+            valid_end = pd.to_datetime(time_config['valid_end'])
+            test_start = pd.to_datetime(time_config['test_start'])
+            test_end = pd.to_datetime(time_config['test_end'])
+            
+            # 划分数据集
+            train_data = df[(df['date'] >= train_start) & (df['date'] <= train_end)]
+            valid_data = df[(df['date'] >= valid_start) & (df['date'] <= valid_end)]
+            test_data = df[(df['date'] >= test_start) & (df['date'] <= test_end)]
+            
         elif self.source == 'qlib':
             time_config = self.time_ranges['qlib']
+            
+            # 转换为datetime
+            train_start = pd.to_datetime(time_config['train_start'])
+            train_end = pd.to_datetime(time_config['train_end'])
+            valid_start = pd.to_datetime(time_config['valid_start'])
+            valid_end = pd.to_datetime(time_config['valid_end'])
+            test_start = pd.to_datetime(time_config['test_start'])
+            test_end = pd.to_datetime(time_config['test_end'])
+            
+            # 划分数据集
+            train_data = df[(df['date'] >= train_start) & (df['date'] <= train_end)]
+            valid_data = df[(df['date'] >= valid_start) & (df['date'] <= valid_end)]
+            test_data = df[(df['date'] >= test_start) & (df['date'] <= test_end)]
+            
         elif self.source == 'combined':
             time_config = self.time_ranges['combined']
+            
+            # 转换为datetime
+            train_start = pd.to_datetime(time_config['train_start'])
+            train_end = pd.to_datetime(time_config['train_end'])
+            valid_start = pd.to_datetime(time_config['valid_start'])
+            valid_end = pd.to_datetime(time_config['valid_end'])
+            test_start = pd.to_datetime(time_config['test_start'])
+            test_end = pd.to_datetime(time_config['test_end'])
+            
+            # 划分数据集
+            train_data = df[(df['date'] >= train_start) & (df['date'] <= train_end)]
+            valid_data = df[(df['date'] >= valid_start) & (df['date'] <= valid_end)]
+            test_data = df[(df['date'] >= test_start) & (df['date'] <= test_end)]
+            
+        elif self.source == 'hybrid':
+            # 混合模式：训练验证使用Qlib数据，测试使用本地CSV数据
+            # 这里只处理一种数据源，混合逻辑在更高层处理
+            if 'hybrid' not in self.time_ranges:
+                raise ValueError("混合模式配置不存在")
+            
+            hybrid_config = self.time_ranges['hybrid']
+            
+            # 判断当前处理的是哪种数据
+            if df.empty:
+                # 空数据直接返回空结果
+                train_data = pd.DataFrame()
+                valid_data = pd.DataFrame()
+                test_data = pd.DataFrame()
+            else:
+                data_start = df['date'].min()
+                data_end = df['date'].max()
+                
+                # 如果是Qlib数据时间范围（2005-2020）
+                if data_start.year <= 2020:
+                    if 'qlib' not in hybrid_config:
+                        raise ValueError("混合模式中缺少qlib配置")
+                    
+                    time_config = hybrid_config['qlib']
+                    train_start = pd.to_datetime(time_config['train_start'])
+                    train_end = pd.to_datetime(time_config['train_end'])
+                    valid_start = pd.to_datetime(time_config['valid_start'])
+                    valid_end = pd.to_datetime(time_config['valid_end'])
+                    
+                    train_data = df[(df['date'] >= train_start) & (df['date'] <= train_end)]
+                    valid_data = df[(df['date'] >= valid_start) & (df['date'] <= valid_end)]
+                    test_data = pd.DataFrame()  # Qlib数据不用于测试
+                    
+                # 如果是本地CSV数据时间范围（2021-2026）
+                else:
+                    if 'local_csv' not in hybrid_config:
+                        raise ValueError("混合模式中缺少local_csv配置")
+                    
+                    time_config = hybrid_config['local_csv']
+                    test_start = pd.to_datetime(time_config['test_start'])
+                    test_end = pd.to_datetime(time_config['test_end'])
+                    
+                    train_data = pd.DataFrame()  # 本地数据不用于训练
+                    valid_data = pd.DataFrame()  # 本地数据不用于验证
+                    test_data = df[(df['date'] >= test_start) & (df['date'] <= test_end)]
+                    
         else:
             raise ValueError(f"不支持的数据源: {self.source}")
         
-        # 转换为datetime
-        train_start = pd.to_datetime(time_config['train_start'])
-        train_end = pd.to_datetime(time_config['train_end'])
-        valid_start = pd.to_datetime(time_config['valid_start'])
-        valid_end = pd.to_datetime(time_config['valid_end'])
-        test_start = pd.to_datetime(time_config['test_start'])
-        test_end = pd.to_datetime(time_config['test_end'])
-        
-        # 划分数据集
-        train_data = df[(df['date'] >= train_start) & (df['date'] <= train_end)]
-        valid_data = df[(df['date'] >= valid_start) & (df['date'] <= valid_end)]
-        test_data = df[(df['date'] >= test_start) & (df['date'] <= test_end)]
-        
         # 验证划分结果
-        total_days = df['date'].nunique()
-        train_days = train_data['date'].nunique()
-        valid_days = valid_data['date'].nunique()
-        test_days = test_data['date'].nunique()
+        total_days = df['date'].nunique() if not df.empty else 0
+        train_days = train_data['date'].nunique() if not train_data.empty else 0
+        valid_days = valid_data['date'].nunique() if not valid_data.empty else 0
+        test_days = test_data['date'].nunique() if not test_data.empty else 0
         
         logger.info(f"时间划分结果:")
-        logger.info(f"  训练集: {train_start.date()} 到 {train_end.date()}, {train_days} 天, {train_data.shape[0]} 行")
-        logger.info(f"  验证集: {valid_start.date()} 到 {valid_end.date()}, {valid_days} 天, {valid_data.shape[0]} 行")
-        logger.info(f"  测试集: {test_start.date()} 到 {test_end.date()}, {test_days} 天, {test_data.shape[0]} 行")
-        logger.info(f"  总覆盖率: {(train_days + valid_days + test_days) / total_days:.2%}")
+        if not train_data.empty:
+            logger.info(f"  训练集: {train_start.date()} 到 {train_end.date()}, {train_days} 天, {train_data.shape[0]} 行")
+        if not valid_data.empty:
+            logger.info(f"  验证集: {valid_start.date()} 到 {valid_end.date()}, {valid_days} 天, {valid_data.shape[0]} 行")
+        if not test_data.empty:
+            logger.info(f"  测试集: {test_start.date()} 到 {test_end.date()}, {test_days} 天, {test_data.shape[0]} 行")
+        
+        if total_days > 0:
+            coverage = (train_days + valid_days + test_days) / total_days
+            logger.info(f"  总覆盖率: {coverage:.2%}")
+        else:
+            logger.warning("  原始数据为空，无法计算覆盖率")
         
         return {
             'train': train_data,
