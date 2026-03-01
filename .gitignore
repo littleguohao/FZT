@@ -5,3 +5,39 @@ data/processed/
 data/features/
 results/
 .ipynb_checkpoints/
+
+# Python
+*.pyo
+*.pyd
+.Python
+.pytest_cache/
+.coverage
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# 环境
+.env
+.venv/
+venv/
+env/
+
+# 日志和缓存
+*.log
+*.sqlite
+*.sqlite3
+
+# 数据文件
+*.pkl
+*.pickle
+*.h5
+*.hdf5
+*.npy
+*.npz
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
