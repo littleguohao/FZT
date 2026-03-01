@@ -1,62 +1,113 @@
-# data_config.yaml - 使用完整本地A股数据
+# data_config.yaml - FZT项目数据配置
+# 支持多种数据源：本地CSV、Qlib、或两者结合
+
+# ========== 数据源配置 ==========
 data:
+  # 数据源选择：local_csv | qlib | combined
   source: "local_csv"
-  data_path: "/Users/lucky/Downloads/O_DATA/"
-  file_pattern: "*-all-latest.csv"
   
-  # 数据字段映射（CSV列名 -> 标准字段名）
-  field_mapping:
-    date: "Date"
-    code: "Code"
-    open: "Open"
-    high: "High"
-    low: "Low"
-    close: "Close"
-    volume: "Volume"
-    amount: "Amount"
-    # 注意：这个数据集没有ForwardFactor字段
+  # ---------- 本地CSV数据配置 ----------
+  local_csv:
+    enabled: true
+    data_path: "/Users/lucky/Downloads/O_DATA/"
+    file_pattern: "*-all-latest.csv"
+    # 时间范围：2021-08-01 到 2026-02-06（约4.5年）
     
-  # 时间范围配置
-  # 数据时间范围：约2021年 - 2026年（4-5年数据）
-  time_ranges:
-    # 完整数据时间范围（实际数据从2021年8月开始）
+    # 数据字段映射（CSV列名 -> 标准字段名）
+    field_mapping:
+      date: "Date"
+      code: "Code"
+      open: "Open"
+      high: "High"
+      low: "Low"
+      close: "Close"
+      volume: "Volume"
+      amount: "Amount"
+      # 注意：这个数据集没有ForwardFactor字段
+  
+  # ---------- Qlib数据配置 ----------
+  qlib:
+    enabled: false  # 设置为true以启用Qlib数据
+    provider_uri: "~/.qlib/qlib_data/cn_data"
+    region: "cn"
+    # Qlib测试数据集时间范围：2005-01-01 到 2020-12-31（16年）
+    # Qlib完整数据集时间范围：2007年至今
+  
+  # ---------- 数据合并配置 ----------
+  merge:
+    enabled: false  # 设置为true以合并本地和Qlib数据
+    strategy: "union"  # union | intersection
+    # 合并后的时间范围：2005-01-01 到 2026-02-06（约21年）
+
+# ========== 时间范围配置 ==========
+time_ranges:
+  # 根据数据源自动选择时间范围配置
+  auto_adjust: true
+  
+  # ---------- 本地CSV数据时间范围 ----------
+  # 实际数据：2021-08-01 到 2026-02-06
+  local_csv:
     data_start: "2021-08-01"
     data_end: "2026-02-06"
-    
-    # 训练/验证/测试时间划分
     train_start: "2021-08-01"
-    train_end: "2023-12-31"   # 约2.5年训练数据
+    train_end: "2023-12-31"   # 约2.5年训练
     valid_start: "2024-01-01"
-    valid_end: "2024-12-31"   # 1年验证数据
+    valid_end: "2024-12-31"   # 1年验证
     test_start: "2025-01-01"
-    test_end: "2026-02-06"    # 测试数据到最新可用数据（2026年2月6日）
-    
-    # 也可以使用滚动窗口（可选）
-    use_rolling_window: false  # 有足够数据，可以使用固定划分
-    rolling_window:
-      window_size: 252  # 1年交易日的训练窗口
-      step_size: 63     # 约1个季度的滚动步长
-      min_train_size: 126  # 最小半年数据
+    test_end: "2026-02-06"    # 约1年测试
   
-  # 特征配置
-  features:
-    fzt_formula: true
-    technical_factors:
-      - "momentum"
-      - "volatility"
-      - "volume"
-      - "price_action"
-      - "technical_indicators"
-    
-  # 数据处理配置
-  processing:
-    normalize: true
-    fill_na: true
-    remove_outliers: true
-    forward_fill: true  # 使用前复权因子调整价格
-    
-  # 股票筛选
-  stock_filter:
-    min_days: 60  # 最少交易日数
-    exclude_st: true  # 排除ST股票
-    exclude_suspended: true  # 排除停牌股票
+  # ---------- Qlib数据时间范围 ----------
+  # 测试数据集：2005-01-01 到 2020-12-31
+  qlib:
+    data_start: "2005-01-01"
+    data_end: "2020-12-31"
+    train_start: "2005-01-01"
+    train_end: "2015-12-31"   # 11年训练
+    valid_start: "2016-01-01"
+    valid_end: "2017-12-31"   # 2年验证
+    test_start: "2018-01-01"
+    test_end: "2020-12-31"    # 3年测试
+  
+  # ---------- 合并数据时间范围 ----------
+  # 合并后：2005-01-01 到 2026-02-06
+  combined:
+    data_start: "2005-01-01"
+    data_end: "2026-02-06"
+    train_start: "2005-01-01"
+    train_end: "2018-12-31"   # 14年训练
+    valid_start: "2019-01-01"
+    valid_end: "2020-12-31"   # 2年验证
+    test_start: "2021-01-01"
+    test_end: "2026-02-06"    # 约5年测试
+  
+  # ---------- 滚动窗口配置（可选） ----------
+  use_rolling_window: false
+  rolling_window:
+    window_size: 252  # 1年交易日
+    step_size: 63     # 1季度
+    min_train_size: 126  # 半年
+
+# ========== 特征工程配置 ==========
+features:
+  fzt_formula: true
+  technical_factors:
+    - "momentum"
+    - "volatility"
+    - "volume"
+    - "price_action"
+    - "technical_indicators"
+
+# ========== 数据处理配置 ==========
+processing:
+  normalize: true
+  fill_na: true
+  remove_outliers: true
+  forward_fill: false  # 本地CSV数据没有前复权因子
+
+# ========== 股票筛选配置 ==========
+stock_filter:
+  min_days: 60  # 最少交易日数
+  exclude_st: true  # 排除ST股票
+  exclude_suspended: true  # 排除停牌股票
+  min_price: 1.0  # 最低价格（元）
+  max_price: 1000.0  # 最高价格（元）
