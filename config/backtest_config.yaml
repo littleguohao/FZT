@@ -1,0 +1,348 @@
+# backtest_config.yaml - FZT排序增强策略回测配置
+# 包含策略参数、交易成本、风险控制等配置
+
+# ========== 回测基础配置 ==========
+backtest:
+  # 回测模式: full | quick | walk_forward
+  mode: "full"
+  
+  # 回测时间范围
+  time_range:
+    start_date: "2021-08-01"
+    end_date: "2026-02-06"
+    
+  # 回测频率: daily | weekly | monthly
+  frequency: "daily"
+  
+  # 初始资金
+  initial_capital: 1000000.0  # 100万元
+  
+  # 基准指数
+  benchmark: "000300.SH"  # 沪深300
+  
+  # 回测引擎
+  engine: "vectorized"  # vectorized | event_driven
+
+# ========== 策略参数配置 ==========
+strategy:
+  # 策略名称
+  name: "FZT_Ranking_Enhanced"
+  
+  # 策略类型: long_only | long_short | market_neutral
+  type: "long_only"
+  
+  # 选股配置
+  stock_selection:
+    # 选股数量
+    top_n: 10  # 每日选择前10只股票
+    
+    # 选股方法: score | rank | probability
+    method: "score"
+    
+    # 最小选股分数
+    min_score: 0.0
+    
+    # 选股池筛选
+    universe_filter:
+      enabled: true
+      filters:
+        - "min_price: 1.0"  # 最低价格
+        - "max_price: 1000.0"  # 最高价格
+        - "min_volume: 1000000"  # 最低成交量（100万元）
+        - "exclude_st: true"  # 排除ST股票
+        - "exclude_suspended: true"  # 排除停牌股票
+        
+  # 持仓配置
+  position:
+    # 持仓权重: equal | score_weighted | market_cap_weighted
+    weighting: "equal"
+    
+    # 最大持仓数量
+    max_positions: 20
+    
+    # 单只股票最大权重
+    max_weight_per_stock: 0.2  # 20%
+    
+    # 行业集中度限制
+    industry_concentration:
+      enabled: true
+      max_industry_weight: 0.3  # 单个行业最大权重30%
+      
+  # 调仓配置
+  rebalance:
+    # 调仓频率: daily | weekly | monthly
+    frequency: "daily"
+    
+    # 调仓时间（交易日内）
+    time: "14:55"  # 收盘前5分钟
+    
+    # 调仓阈值
+    threshold:
+      score_change: 0.1  # 分数变化超过10%触发调仓
+      rank_change: 3  # 排名变化超过3位触发调仓
+      
+    # 渐进调仓
+    gradual_rebalance:
+      enabled: true
+      max_daily_turnover: 0.2  # 每日最大换手率20%
+
+# ========== 交易成本配置 ==========
+transaction_cost:
+  # 佣金费率
+  commission:
+    rate: 0.0003  # 万分之三
+    min_commission: 5.0  # 最低5元
+    
+  # 印花税
+  stamp_duty:
+    rate: 0.001  # 千分之一
+    side: "sell"  # 仅卖出时收取
+    
+  # 过户费
+  transfer_fee:
+    rate: 0.00002  # 十万分之二
+    
+  # 滑点配置
+  slippage:
+    enabled: true
+    model: "fixed"  # fixed | proportional | random
+    fixed_rate: 0.0005  # 固定万分之五
+    proportional_rate: 0.001  # 比例千分之一
+    
+  # 冲击成本
+  market_impact:
+    enabled: true
+    model: "linear"
+    impact_per_trade: 0.001  # 每笔交易千分之一冲击成本
+    
+  # 税费优化
+  tax_optimization:
+    enabled: true
+    hold_period_days: 30  # 持有30天以上免税
+    tax_rate_short: 0.2  # 短期持有税率20%
+    tax_rate_long: 0.1  # 长期持有税率10%
+
+# ========== 流动性控制配置 ==========
+liquidity_control:
+  # 成交量限制
+  volume_limit:
+    enabled: true
+    # 最大交易量为当日成交量的百分比
+    max_trade_ratio: 0.1  # 10%
+    # 最小剩余成交量
+    min_remaining_volume: 0.3  # 交易后至少剩余30%成交量
+    
+  # 订单执行
+  order_execution:
+    # 执行策略: market | limit | vwap | twap
+    strategy: "vwap"
+    
+    # VWAP执行
+    vwap:
+      time_period: "1d"  # 日内VWAP
+      participation_rate: 0.1  # 10%参与率
+      
+    # TWAP执行
+    twap:
+      intervals: 10  # 分成10个区间执行
+      
+  # 流动性监控
+  monitoring:
+    enabled: true
+    metrics:
+      - "bid_ask_spread"
+      - "market_depth"
+      - "volume_imbalance"
+    alert_thresholds:
+      spread_warning: 0.005  # 买卖价差超过0.5%警告
+      depth_warning: 0.3  # 市场深度不足30%警告
+
+# ========== 风险控制配置 ==========
+risk_management:
+  # 仓位控制
+  position_control:
+    # 最大仓位比例
+    max_position_ratio: 0.95  # 最大95%仓位
+    
+    # 现金保留比例
+    min_cash_ratio: 0.05  # 至少保留5%现金
+    
+    # 杠杆限制
+    max_leverage: 1.0  # 无杠杆
+    
+  # 止损配置
+  stop_loss:
+    enabled: true
+    
+    # 个股止损
+    individual:
+      enabled: true
+      method: "trailing"  # trailing | fixed | atr
+      trailing_percent: 0.1  # 10%跟踪止损
+      fixed_percent: 0.15  # 15%固定止损
+      atr_multiplier: 2.0  # 2倍ATR止损
+      
+    # 组合止损
+    portfolio:
+      enabled: true
+      drawdown_limit: 0.15  # 最大回撤15%
+      daily_loss_limit: 0.05  # 单日最大损失5%
+      
+  # 风险因子暴露控制
+  factor_exposure:
+    enabled: true
+    factors:
+      - "market_beta"
+      - "size"
+      - "value"
+      - "momentum"
+      - "volatility"
+    max_exposure:
+      market_beta: 1.2
+      size: 0.5
+      value: 0.3
+      momentum: 0.4
+      volatility: 0.3
+      
+  # 行业风险控制
+  industry_risk:
+    enabled: true
+    max_industry_exposure: 0.3  # 单个行业最大暴露30%
+    industry_neutral: true  # 行业中性
+    
+  # 流动性风险
+  liquidity_risk:
+    enabled: true
+    min_liquidity_score: 0.3  # 最小流动性分数
+    exit_days: 3  # 流动性不足时3天内退出
+
+# ========== 绩效评估配置 ==========
+performance:
+  # 收益指标
+  return_metrics:
+    - "total_return"
+    - "annual_return"
+    - "sharpe_ratio"
+    - "sortino_ratio"
+    - "calmar_ratio"
+    - "omega_ratio"
+    
+  # 风险指标
+  risk_metrics:
+    - "volatility"
+    - "max_drawdown"
+    - "var_95"
+    - "cvar_95"
+    - "downside_deviation"
+    
+  # 相对指标
+  relative_metrics:
+    - "alpha"
+    - "beta"
+    - "information_ratio"
+    - "tracking_error"
+    - "up_capture"
+    - "down_capture"
+    
+  # 交易指标
+  trading_metrics:
+    - "win_rate"
+    - "profit_factor"
+    - "average_win"
+    - "average_loss"
+    - "max_consecutive_wins"
+    - "max_consecutive_losses"
+    - "turnover_rate"
+    
+  # 统计检验
+  statistical_tests:
+    enabled: true
+    tests:
+      - "t_test"  # T检验
+      - "bootstrap"  # 自助法检验
+      - "monte_carlo"  # 蒙特卡洛模拟
+    confidence_level: 0.95  # 95%置信水平
+
+# ========== 报告生成配置 ==========
+reporting:
+  # 报告格式
+  formats:
+    - "html"
+    - "pdf"
+    - "excel"
+    
+  # 图表配置
+  charts:
+    equity_curve: true
+    drawdown_chart: true
+    monthly_returns_heatmap: true
+    rolling_metrics: true
+    portfolio_composition: true
+    risk_exposure: true
+    
+  # 详细程度
+  detail_level: "full"  # minimal | standard | full
+  
+  # 保存路径
+  save_path: "./reports/backtest/"
+  
+  # 自动生成
+  auto_generate: true
+
+# ========== 回测高级配置 ==========
+advanced:
+  # 回测加速
+  acceleration:
+    enabled: true
+    method: "vectorization"  # vectorization | parallel | gpu
+    num_processes: 4
+    
+  # 内存优化
+  memory_optimization:
+    enabled: true
+    chunk_size: 1000  # 每次处理1000只股票
+    use_disk_cache: true
+    
+  # 随机种子
+  random_seed: 42
+  
+  # 回测验证
+  validation:
+    enabled: true
+    methods:
+      - "walk_forward"
+      - "cross_validation"
+      - "out_of_sample"
+    out_of_sample_ratio: 0.2  # 20%样本外数据
+
+# ========== 环境变量覆盖 ==========
+env_overrides:
+  # 初始资金
+  initial_capital: "${INITIAL_CAPITAL:-1000000.0}"
+  
+  # 回测时间范围
+  start_date: "${BACKTEST_START_DATE:-2021-08-01}"
+  end_date: "${BACKTEST_END_DATE:-2026-02-06}"
+  
+  # 佣金费率
+  commission_rate: "${COMMISSION_RATE:-0.0003}"
+  
+  # 并行进程数
+  num_processes: "${NUM_PROCESSES:-4}"
+  
+  # 报告保存路径
+  report_save_path: "${REPORT_SAVE_PATH:-./reports/backtest/}"
+
+# ========== 日志配置 ==========
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file: "./logs/backtest.log"
+  console: true
+  
+  # 详细日志
+  verbose:
+    trading: true
+    performance: true
+    risk_management: false
+    reporting: true

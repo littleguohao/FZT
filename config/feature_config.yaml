@@ -1,0 +1,319 @@
+# feature_config.yaml - FZT排序增强策略特征工程配置
+# 包含特征生成、中性化处理、特征筛选等配置
+
+# ========== 特征生成配置 ==========
+feature_generation:
+  # 启用特征生成
+  enabled: true
+  
+  # 特征生成模式: all | incremental | selected
+  mode: "all"
+  
+  # 并行处理
+  parallel: true
+  num_workers: 4
+  
+  # 缓存配置
+  cache_features: true
+  cache_path: "./cache/features/"
+  cache_ttl: 86400  # 24小时
+
+# ========== 基础价格特征 ==========
+price_features:
+  # 基础价格特征
+  basic:
+    - "open"
+    - "high"
+    - "low"
+    - "close"
+    - "volume"
+    - "amount"
+    
+  # 收益率特征
+  returns:
+    horizons: [1, 2, 3, 5, 10, 20, 60]  # 收益率计算周期
+    methods: ["simple", "log"]  # 简单收益率和对数收益率
+    
+  # 价格变动特征
+  price_changes:
+    - "high_low_range"  # 高低价差
+    - "close_open_ratio"  # 收盘开盘比
+    - "body_size"  # K线实体大小
+    - "upper_shadow"  # 上影线
+    - "lower_shadow"  # 下影线
+
+# ========== FZT衍生特征配置 ==========
+fzt_features:
+  # FZT公式启用
+  enabled: true
+  
+  # FZT公式配置（引用fzt_config.yaml）
+  config_path: "./fzt_config.yaml"
+  
+  # FZT特征列表
+  features:
+    - "fzt_score"  # 综合FZT分数
+    - "fzt_momentum"  # 动量分量
+    - "fzt_strength"  # 强度分量
+    - "fzt_volatility"  # 波动率分量
+    - "fzt_volume"  # 成交量分量
+    
+  # FZT特征计算配置
+  calculation:
+    rolling_window: 60  # 滚动窗口大小
+    min_periods: 20  # 最小计算周期
+    normalize: true  # 标准化处理
+    
+  # FZT信号特征
+  signals:
+    - "fzt_signal"  # 综合信号（-1到1）
+    - "fzt_strength_signal"  # 强度信号
+    - "fzt_momentum_signal"  # 动量信号
+    - "fzt_trend"  # 趋势方向（1上升，-1下降）
+
+# ========== Alpha158特征配置 ==========
+alpha158_features:
+  # Alpha158特征启用
+  enabled: true
+  
+  # 特征选择模式: all | selected | auto
+  selection_mode: "auto"
+  
+  # 自动选择配置
+  auto_selection:
+    min_importance: 0.01  # 最小重要性阈值
+    max_features: 50  # 最大特征数量
+    correlation_threshold: 0.8  # 相关性阈值
+    
+  # 手动选择特征（如果selection_mode为selected）
+  selected_features:
+    # 动量类特征
+    momentum:
+      - "Alpha001"
+      - "Alpha006"
+      - "Alpha012"
+      - "Alpha014"
+      - "Alpha020"
+      
+    # 反转类特征
+    reversal:
+      - "Alpha002"
+      - "Alpha004"
+      - "Alpha005"
+      - "Alpha008"
+      
+    # 波动率类特征
+    volatility:
+      - "Alpha003"
+      - "Alpha007"
+      - "Alpha009"
+      - "Alpha010"
+      
+    # 成交量类特征
+    volume:
+      - "Alpha011"
+      - "Alpha013"
+      - "Alpha015"
+      - "Alpha016"
+      
+    # 其他特征
+    others:
+      - "Alpha017"
+      - "Alpha018"
+      - "Alpha019"
+
+# ========== 技术指标特征 ==========
+technical_features:
+  # 动量指标
+  momentum:
+    rsi:
+      periods: [6, 12, 24]
+    stochastic:
+      periods: [5, 10, 20]
+    macd:
+      fast_period: 12
+      slow_period: 26
+      signal_period: 9
+    cci:
+      periods: [14, 20]
+      
+  # 波动率指标
+  volatility:
+    atr:
+      periods: [14, 20]
+    bollinger_bands:
+      periods: [20]
+      std_dev: [1, 2]
+    keltner_channels:
+      periods: [20]
+      
+  # 成交量指标
+  volume:
+    obv: true  # 能量潮
+    volume_ratio:
+      periods: [5, 20]
+    mfi:
+      periods: [14]  # 资金流量指标
+      
+  # 趋势指标
+  trend:
+    moving_averages:
+      simple: [5, 10, 20, 60, 120]
+      exponential: [5, 10, 20, 60]
+    adx:
+      periods: [14]  # 平均趋向指数
+
+# ========== 中性化处理配置 ==========
+neutralization:
+  # 中性化处理启用
+  enabled: true
+  
+  # 中性化方法: industry | market_cap | both | none
+  method: "both"
+  
+  # 行业中性化
+  industry_neutral:
+    enabled: true
+    industry_column: "industry"  # 行业列名
+    method: "group_mean"  # group_mean | group_median | regression
+    
+  # 市值中性化
+  market_cap_neutral:
+    enabled: true
+    market_cap_column: "market_cap"  # 市值列名
+    method: "regression"  # regression | quantile
+    
+  # 其他因子中性化
+  other_neutral:
+    enabled: false
+    factors: ["pe_ratio", "pb_ratio", "dividend_yield"]
+    
+  # 中性化后处理
+  postprocessing:
+    standardize: true  # 标准化
+    winsorize: true  # 缩尾处理
+    winsorize_limits: [0.01, 0.99]  # 1%缩尾
+
+# ========== 特征筛选配置 ==========
+feature_selection:
+  # 特征筛选启用
+  enabled: true
+  
+  # 筛选阶段配置
+  stages:
+    # 第一阶段：基础筛选
+    stage1:
+      enabled: true
+      methods:
+        - "missing_rate"  # 缺失率筛选
+        - "constant_check"  # 常数值检查
+        - "variance_check"  # 方差检查
+      thresholds:
+        missing_rate: 0.3  # 最大缺失率30%
+        variance_threshold: 0.001  # 最小方差
+        
+    # 第二阶段：相关性筛选
+    stage2:
+      enabled: true
+      method: "correlation"
+      threshold: 0.8  # 相关性阈值
+      group_by: "feature_type"  # 按特征类型分组筛选
+      
+    # 第三阶段：重要性筛选
+    stage3:
+      enabled: true
+      method: "importance"
+      model_type: "lightgbm"
+      threshold: 0.01  # 重要性阈值
+      top_k: 100  # 保留Top-K特征
+      
+  # 特征重要性评估
+  importance_evaluation:
+    method: "permutation"  # permutation | shap | gain
+    n_repeats: 5
+    random_state: 42
+    
+  # 特征稳定性检查
+  stability_check:
+    enabled: true
+    time_periods: 4  # 将时间分成4段检查稳定性
+    stability_threshold: 0.7  # 稳定性阈值
+
+# ========== 特征存储配置 ==========
+feature_storage:
+  # 存储格式: parquet | hdf5 | feather | csv
+  format: "parquet"
+  
+  # 压缩配置
+  compression: "snappy"
+  
+  # 分区配置
+  partitioning:
+    enabled: true
+    columns: ["date"]  # 按日期分区
+    
+  # 特征元数据
+  metadata:
+    enabled: true
+    include:
+      - "feature_type"
+      - "calculation_formula"
+      - "neutralization_status"
+      - "importance_score"
+      
+  # 特征版本控制
+  versioning:
+    enabled: true
+    version_suffix: true  # 在文件名中添加版本后缀
+
+# ========== 特征质量检查 ==========
+quality_check:
+  # 数据质量检查
+  data_quality:
+    enabled: true
+    checks:
+      - "missing_values"
+      - "infinite_values"
+      - "outliers"
+      - "distribution"
+      
+  # 特征有效性检查
+  feature_validity:
+    enabled: true
+    ic_check: true  # 信息系数检查
+    ic_threshold: 0.02  # IC阈值
+    decay_check: true  # 衰减检查
+    
+  # 特征相关性矩阵
+  correlation_matrix:
+    enabled: true
+    save_matrix: true
+    plot_heatmap: false  # 是否生成热图
+
+# ========== 环境变量覆盖 ==========
+env_overrides:
+  # 特征缓存路径
+  cache_path: "${FEATURE_CACHE_PATH:-./cache/features/}"
+  
+  # 并行工作数
+  num_workers: "${NUM_WORKERS:-4}"
+  
+  # 中性化方法
+  neutralization_method: "${NEUTRALIZATION_METHOD:-both}"
+  
+  # 特征存储路径
+  feature_store_path: "${FEATURE_STORE_PATH:-./data/features/}"
+
+# ========== 日志配置 ==========
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file: "./logs/feature_engineering.log"
+  console: true
+  
+  # 详细日志
+  verbose:
+    feature_generation: true
+    neutralization: true
+    selection: false
+    quality_check: true
