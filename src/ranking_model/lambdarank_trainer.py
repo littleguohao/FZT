@@ -23,6 +23,14 @@ except ImportError:
     LGBM_AVAILABLE = False
     warnings.warn("LightGBM未安装，LambdaRank训练器将无法工作")
 
+# NDCG评估器导入
+try:
+    from src.evaluation.ndcg_evaluator import NDCGEvaluator
+    NDCG_EVALUATOR_AVAILABLE = True
+except ImportError:
+    NDCG_EVALUATOR_AVAILABLE = False
+    warnings.warn("NDCGEvaluator未找到，将使用内置NDCG计算")
+
 
 class LambdaRankTrainer:
     """
@@ -697,7 +705,24 @@ class LambdaRankTrainer:
         
         ndcg_results = {}
         
-        # 按分组计算NDCG
+        # 使用NDCGEvaluator如果可用
+        if NDCG_EVALUATOR_AVAILABLE:
+            try:
+                evaluator = NDCGEvaluator(k_values=k_values)
+                batch_results = evaluator.evaluate_batch(y_true, y_pred, groups)
+                
+                # 从汇总结果中提取NDCG
+                if 'ndcg' in batch_results['summary']:
+                    for k in k_values:
+                        if k in batch_results['summary']['ndcg']:
+                            ndcg_results[k] = batch_results['summary']['ndcg'][k]['mean']
+                        else:
+                            ndcg_results[k] = 0.0
+                return ndcg_results
+            except Exception as e:
+                warnings.warn(f"使用NDCGEvaluator失败，回退到内置计算: {e}")
+        
+        # 回退到内置计算
         start_idx = 0
         group_ndcgs = {k: [] for k in k_values}
         
@@ -950,6 +975,112 @@ class LambdaRankTrainer:
         metrics = self._calculate_metrics(y_true, y_pred, groups)
         
         return metrics
+    
+    def evaluate_comprehensive(self, features: pd.DataFrame, labels: pd.Series, 
+                             k_values: List[int] = None) -> Dict:
+        """
+        全面评估模型，使用NDCGEvaluator的所有指标
+        
+        参数:
+        ----------
+        features : pd.DataFrame
+            特征数据
+        labels : pd.Series
+            标签数据
+        k_values : List[int], 可选
+            K值列表
+            
+        返回:
+        -------
+        Dict
+            包含详细评估结果的字典
+        """
+        if not NDCG_EVALUATOR_AVAILABLE:
+            warnings.warn("NDCGEvaluator不可用，回退到基本评估")
+            return self.evaluate(features, labels)
+        
+        # 预测
+        predictions = self.predict(features)
+        
+        # 准备数据集
+        dataset = self._prepare_dataset(features, labels)
+        y_true = dataset['labels'].values
+        y_pred = predictions.values
+        groups = dataset['groups']
+        
+        # 使用NDCGEvaluator进行全面评估
+        if k_values is None:
+            k_values = self.lgb_params.get('eval_at', [1, 3, 5, 10])
+        
+        evaluator = NDCGEvaluator(k_values=k_values)
+        batch_results = evaluator.evaluate_batch(y_true, y_pred, groups)
+        
+        # 提取主要指标
+        summary = batch_results['summary']
+        comprehensive_metrics = {}
+        
+        # 添加所有指标
+        for metric in ['ndcg', 'map', 'mrr', 'precision', 'recall', 'f1']:
+            if metric in summary:
+                for k in k_values:
+                    if k in summary[metric]:
+                        comprehensive_metrics[f'{metric}@{k}'] = summary[metric][k]['mean']
+        
+        # 添加基本指标
+        basic_metrics = self._calculate_metrics(y_true, y_pred, groups)
+        comprehensive_metrics.update(basic_metrics)
+        
+        # 添加详细结果
+        comprehensive_metrics['_detailed_results'] = batch_results
+        
+        return comprehensive_metrics
+    
+    def get_evaluation_report(self, features: pd.DataFrame, labels: pd.Series) -> str:
+        """
+        获取详细的评估报告
+        
+        参数:
+        ----------
+        features : pd.DataFrame
+            特征数据
+        labels : pd.Series
+            标签数据
+            
+        返回:
+        -------
+        str
+            格式化的评估报告
+        """
+        if not NDCG_EVALUATOR_AVAILABLE:
+            return "NDCGEvaluator不可用，无法生成详细报告"
+        
+        # 预测
+        predictions = self.predict(features)
+        
+        # 准备数据集
+        dataset = self._prepare_dataset(features, labels)
+        y_true = dataset['labels'].values
+        y_pred = predictions.values
+        groups = dataset['groups']
+        
+        # 使用NDCGEvaluator
+        k_values = self.lgb_params.get('eval_at', [1, 3, 5, 10])
+        evaluator = NDCGEvaluator(k_values=k_values)
+        batch_results = evaluator.evaluate_batch(y_true, y_pred, groups)
+        
+        # 生成报告
+        report = evaluator.get_report(batch_results)
+        
+        # 添加模型信息
+        model_info = f"\n模型信息:\n{'='*40}\n"
+        model_info += f"特征数量: {len(self.feature_names)}\n"
+        model_info += f"最佳迭代次数: {self.best_iteration}\n"
+        
+        if self.feature_importance:
+            top_features = sorted(self.feature_importance.items(), key=lambda x: x[1], reverse=True)[:5]
+            model_info += f"Top 5特征: {', '.join([f'{f}:{v:.3f}' for f, v in top_features])}\n"
+        
+        return report + model_info
     
     def get_config(self) -> Dict:
         """
