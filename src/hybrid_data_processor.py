@@ -180,9 +180,24 @@ class HybridDataProcessor:
         logger.info("开始加载Qlib数据...")
         
         try:
-            # 这里需要实现Qlib数据加载逻辑
-            # 由于Qlib数据需要单独下载，这里先返回空数据
-            logger.warning("Qlib数据加载功能待实现，需要先下载Qlib数据")
+            # 使用新的Qlib数据加载器
+            from .qlib_data_loader import QlibDataLoader
+            
+            qlib_loader = QlibDataLoader(self.config_path)
+            split_data = qlib_loader.load_and_split_data()
+            
+            logger.info(f"✅ Qlib数据加载完成:")
+            for split_name, data in split_data.items():
+                if not data.empty:
+                    logger.info(f"  {split_name}: {data.shape[0]} 行, {data['code'].nunique()} 只股票")
+                else:
+                    logger.warning(f"  {split_name}: 数据为空")
+            
+            return split_data
+            
+        except ImportError as e:
+            logger.error(f"Qlib数据加载器导入失败: {e}")
+            logger.warning("使用空数据作为占位符")
             
             # 创建空的DataFrame作为占位符
             empty_df = pd.DataFrame()
@@ -192,7 +207,6 @@ class HybridDataProcessor:
                 'valid': empty_df,
                 'test': empty_df
             }
-            
         except Exception as e:
             logger.error(f"加载Qlib数据失败: {e}")
             raise

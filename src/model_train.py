@@ -163,8 +163,29 @@ class ModelTrainer:
                 try:
                     import lightgbm as lgb
                     
+                    # 从配置中获取参数
+                    lgb_params = self.model_params.copy()
+                    
+                    # 确保必要的参数存在
+                    if "objective" not in lgb_params:
+                        lgb_params["objective"] = "binary"
+                    if "random_state" not in lgb_params:
+                        lgb_params["random_state"] = 42
+                    if "n_estimators" not in lgb_params:
+                        lgb_params["n_estimators"] = 100
+                    if "learning_rate" not in lgb_params:
+                        lgb_params["learning_rate"] = 0.05
+                    
+                    # 处理early_stopping_rounds参数
+                    # 这个参数在scikit-learn接口中是在fit方法中使用的
+                    if "early_stopping_rounds" in lgb_params:
+                        # 保存这个参数，在fit方法中使用
+                        self.early_stopping_rounds = lgb_params.pop("early_stopping_rounds")
+                    else:
+                        self.early_stopping_rounds = None
+                    
                     # 创建LightGBM模型
-                    self.model = lgb.LGBMClassifier(**self.model_params)
+                    self.model = lgb.LGBMClassifier(**lgb_params)
                     logger.info("LightGBM模型实例创建成功")
                     
                 except (ImportError, OSError) as e:
@@ -292,19 +313,57 @@ class ModelTrainer:
         if self.model is None:
             self.create_model()
         
-        # 准备训练数据
-        train_data = (X_train, y_train)
+        # 准备训练数据 - 确保正确的数据格式
+        # scikit-learn模型需要numpy数组或DataFrame，不能是元组
+        X_train_data = X_train
+        y_train_data = y_train
         
         # 准备验证数据（如果有）
         if X_val is not None and y_val is not None:
-            valid_data = (X_val, y_val)
+            X_val_data = X_val
+            y_val_data = y_val
         else:
-            valid_data = None
+            X_val_data = None
+            y_val_data = None
         
         # 训练模型
         try:
-            self.model.fit(train_data, valid_data)
-            logger.info("模型训练完成")
+            # 对于LightGBM，需要提供验证集用于早停
+            if self.model_type == "lightgbm" and X_val_data is not None and y_val_data is not None:
+                # LightGBM的scikit-learn接口使用eval_set参数
+                eval_set = [(X_val_data, y_val_data)]
+                
+                # 设置早停回调（如果配置了早停）
+                callbacks = []
+                if hasattr(self, 'early_stopping_rounds') and self.early_stopping_rounds:
+                    try:
+                        from lightgbm import early_stopping
+                        callbacks.append(early_stopping(self.early_stopping_rounds))
+                        logger.info(f"启用早停，轮数: {self.early_stopping_rounds}")
+                    except ImportError:
+                        logger.warning("无法导入lightgbm.early_stopping，跳过早停")
+                
+                # 训练模型
+                if callbacks:
+                    self.model.fit(
+                        X_train_data, y_train_data,
+                        eval_set=eval_set,
+                        eval_metric="accuracy",
+                        callbacks=callbacks
+                    )
+                    logger.info("LightGBM模型训练完成（使用早停）")
+                else:
+                    # 不使用早停，只使用验证集
+                    self.model.fit(
+                        X_train_data, y_train_data,
+                        eval_set=eval_set,
+                        eval_metric="accuracy"
+                    )
+                    logger.info("LightGBM模型训练完成（使用验证集）")
+            else:
+                # 对于其他模型，使用标准的fit方法
+                self.model.fit(X_train_data, y_train_data)
+                logger.info("模型训练完成")
             
             # 获取特征重要性
             self._extract_feature_importance(X_train.columns)

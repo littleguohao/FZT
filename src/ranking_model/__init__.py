@@ -11,9 +11,18 @@ from .label_engineering import (
     create_cross_validation_folds
 )
 
+from .lambdarank_trainer import (
+    LambdaRankTrainer,
+    create_lambdarank_trainer_from_config,
+    train_lambdarank_model
+)
+
 __all__ = [
     'create_ranking_labels',
     'create_lambdarank_dataset', 
     'validate_label_quality',
-    'create_cross_validation_folds'
+    'create_cross_validation_folds',
+    'LambdaRankTrainer',
+    'create_lambdarank_trainer_from_config',
+    'train_lambdarank_model'
 ]

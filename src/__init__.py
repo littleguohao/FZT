@@ -22,6 +22,12 @@ from .model_train import ModelTrainer
 from .evaluate import ModelEvaluator
 from .hybrid_data_processor import HybridDataProcessor
 
+# 导出回测模块
+from .backtest import (
+    BacktestEngine, BacktestConfig, SignalType, PositionStatus,
+    Trade, Position, PerformanceEvaluator, ReportGenerator
+)
+
 __all__ = [
     "DataPreprocessor",
     "FZTFormula",
@@ -30,6 +36,14 @@ __all__ = [
     "ModelTrainer",
     "ModelEvaluator",
     "HybridDataProcessor",
+    "BacktestEngine",
+    "BacktestConfig",
+    "SignalType",
+    "PositionStatus",
+    "Trade",
+    "Position",
+    "PerformanceEvaluator",
+    "ReportGenerator",
     "calculate_target",
     "create_sample_data"
 ]

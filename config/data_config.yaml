@@ -29,7 +29,7 @@ data:
   # ---------- Qlib数据配置 ----------
   qlib:
     enabled: true  # 启用Qlib数据用于训练验证
-    provider_uri: "~/.qlib/qlib_data/cn_data"
+    provider_uri: "~/.qlib/qlib_data/cn_data"  # 修正：Qlib期望的目录结构
     region: "cn"
     # Qlib测试数据集时间范围：2005-01-01 到 2020-12-31（16年）
     # Qlib完整数据集时间范围：2007年至今

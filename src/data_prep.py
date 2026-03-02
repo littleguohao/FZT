@@ -50,12 +50,17 @@ class DataPreprocessor:
         """
         self.config_path = config_path
         self.config = self._load_config()
+        
+        # 设置数据源
+        self.source = self.config['data']['source']
+        
         self._validate_config()
         
-        # 设置数据路径
-        self.data_path = Path(self.config['data']['local_csv']['data_path'])
-        self.file_pattern = self.config['data']['local_csv']['file_pattern']
-        self.field_mapping = self.config['data']['local_csv']['field_mapping']
+        # 设置数据路径（如果使用本地CSV数据）
+        if self.source in ['local_csv', 'combined', 'hybrid']:
+            self.data_path = Path(self.config['data']['local_csv']['data_path'])
+            self.file_pattern = self.config['data']['local_csv']['file_pattern']
+            self.field_mapping = self.config['data']['local_csv']['field_mapping']
         
         # 处理配置
         self.processing_config = self.config.get('processing', {})
@@ -121,12 +126,15 @@ class DataPreprocessor:
             if test_source not in ['local_csv']:
                 raise ValueError(f"混合模式测试数据源必须是local_csv，当前: {test_source}")
         
-        # 验证字段映射
-        required_fields = ['date', 'code', 'open', 'high', 'low', 'close', 'volume', 'amount']
-        field_mapping = local_csv_config.get('field_mapping', {})
-        for field in required_fields:
-            if field not in field_mapping:
-                raise ValueError(f"字段映射中缺少必要字段: {field}")
+        # 验证字段映射（仅当使用本地CSV数据时）
+        if self.source in ['local_csv', 'combined', 'hybrid']:
+            required_fields = ['date', 'code', 'open', 'high', 'low', 'close', 'volume', 'amount']
+            # 获取本地CSV配置
+            local_csv_config = self.config['data']['local_csv']
+            field_mapping = local_csv_config.get('field_mapping', {})
+            for field in required_fields:
+                if field not in field_mapping:
+                    raise ValueError(f"字段映射中缺少必要字段: {field}")
         
         logger.info("配置文件验证通过")
     

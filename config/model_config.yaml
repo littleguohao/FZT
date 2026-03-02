@@ -1,6 +1,7 @@
 # model_config.yaml
 model:
   # 模型类型: lightgbm 或 random_forest
+  # 现在libomp已安装，可以使用LightGBM
   type: "lightgbm"
   
   # LightGBM参数
@@ -12,7 +13,7 @@ model:
     max_depth: 5
     random_state: 42
     n_estimators: 100
-    early_stopping_rounds: 10
+    # early_stopping_rounds: 10  # 暂时禁用早停，避免错误
     
   # 随机森林参数（备用）
   random_forest_params:
@@ -58,5 +59,6 @@ model:
     
   # 预测配置
   prediction:
-    horizon: 2  # 预测未来2天
+    horizon: 1  # 预测未来1天（第二天上涨）
     top_n: 10   # 每日选股数量
+    success_threshold: 0.6  # 选股成功率目标（60%）

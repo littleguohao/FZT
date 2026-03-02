@@ -442,13 +442,13 @@ class FeatureEngineer:
         
         return all_features
     
-    def calculate_target_variable(self, data: pd.DataFrame, horizon: int = 2) -> pd.Series:
+    def calculate_target_variable(self, data: pd.DataFrame, horizon: int = 1) -> pd.Series:
         """
-        计算目标变量：未来N天收益率
+        计算目标变量：未来N天收益率（默认T+1）
         
         Args:
             data: 包含价格数据的DataFrame
-            horizon: 预测 horizon（天数）
+            horizon: 预测 horizon（天数），默认1表示第二天
             
         Returns:
             pd.Series: 未来收益率序列
@@ -456,14 +456,22 @@ class FeatureEngineer:
         if 'close' not in data.columns:
             raise ValueError("输入数据必须包含'close'列")
         
-        # 计算未来收益率
+        # 计算未来收益率（T+horizon）
         future_return = data['close'].shift(-horizon) / data['close'] - 1
         
         # 将最后horizon天的值设为NaN（因为没有未来数据）
         if len(future_return) > horizon:
             future_return.iloc[-horizon:] = np.nan
         
-        return future_return
+        # 转换为二分类：上涨为1，下跌或平盘为0
+        target_binary = (future_return > 0).astype(int)
+        target_binary.name = 'target'
+        
+        logger.info(f"目标变量计算完成 (T+{horizon}):")
+        logger.info(f"  正类比例: {target_binary.mean():.2%}")
+        logger.info(f"  有效样本数: {target_binary.notna().sum()}")
+        
+        return target_binary
     
     def normalize_features(self, features: pd.DataFrame) -> pd.DataFrame:
         """
