@@ -1,141 +1,80 @@
-# data_config.yaml - FZT项目数据配置
-# 支持多种数据源：本地CSV、Qlib、或两者结合
+# 数据配置文件
+# 所有脚本共享的数据配置
 
-# ========== 数据源配置 ==========
-data:
-  # 数据源选择：local_csv | qlib | combined | hybrid
-  # hybrid: Qlib数据用于训练验证，本地CSV用于测试
-  source: "hybrid"
+qlib:
+  # QLIB数据配置
+  path: "results/expanded_stock_data/"
+  file: "expanded_data_with_target.csv"
+  date_range:
+    - "2005-01-01"
+    - "2020-12-31"
   
-  # ---------- 本地CSV数据配置 ----------
-  local_csv:
-    enabled: true
-    data_path: "/Users/lucky/Downloads/O_DATA/"
-    file_pattern: "*-all-latest.csv"
-    # 时间范围：2021-08-01 到 2026-02-06（约4.5年）
-    
-    # 数据字段映射（CSV列名 -> 标准字段名）
-    field_mapping:
-      date: "Date"
-      code: "Code"
-      open: "Open"
-      high: "High"
-      low: "Low"
-      close: "Close"
-      volume: "Volume"
-      amount: "Amount"
-      # 注意：这个数据集没有ForwardFactor字段
+csv:
+  # CSV数据配置
+  path: "/Users/lucky/Downloads/O_DATA/"
+  pattern: "*-all-latest.csv"
+  date_range:
+    - "2021-01-01"
+    - "2026-12-31"
   
-  # ---------- Qlib数据配置 ----------
-  qlib:
-    enabled: true  # 启用Qlib数据用于训练验证
-    provider_uri: "~/.qlib/qlib_data/cn_data"  # 修正：Qlib期望的目录结构
-    region: "cn"
-    # Qlib测试数据集时间范围：2005-01-01 到 2020-12-31（16年）
-    # Qlib完整数据集时间范围：2007年至今
+target:
+  # 目标变量配置
+  window: 1      # T+1预测
+  threshold: 0   # 上涨阈值，>0表示上涨
   
-  # ---------- 数据合并配置 ----------
-  merge:
-    enabled: false  # 设置为true以合并本地和Qlib数据
-    strategy: "union"  # union | intersection
-    # 合并后的时间范围：2005-01-01 到 2026-02-06（约21年）
+data_quality:
+  # 数据质量检查
+  min_rows: 1000
+  min_stocks: 10
+  max_missing_ratio: 0.1
   
-  # ---------- 混合数据配置 ----------
-  hybrid:
-    enabled: true  # 启用混合数据模式
-    # 训练/验证使用Qlib数据 (2005-2020)
-    train_val_source: "qlib"
-    # 测试使用本地CSV数据 (2021-2026)
-    test_source: "local_csv"
-
-# ========== 时间范围配置 ==========
-time_ranges:
-  # 根据数据源自动选择时间范围配置
-  auto_adjust: true
-  
-  # ---------- 本地CSV数据时间范围 ----------
-  # 实际数据：2021-08-01 到 2026-02-06
-  local_csv:
-    data_start: "2021-08-01"
-    data_end: "2026-02-06"
-    train_start: "2021-08-01"
-    train_end: "2023-12-31"   # 约2.5年训练
-    valid_start: "2024-01-01"
-    valid_end: "2024-12-31"   # 1年验证
-    test_start: "2025-01-01"
-    test_end: "2026-02-06"    # 约1年测试
-  
-  # ---------- Qlib数据时间范围 ----------
-  # 测试数据集：2005-01-01 到 2020-12-31
-  qlib:
-    data_start: "2005-01-01"
-    data_end: "2020-12-31"
-    train_start: "2005-01-01"
-    train_end: "2015-12-31"   # 11年训练
-    valid_start: "2016-01-01"
-    valid_end: "2017-12-31"   # 2年验证
-    test_start: "2018-01-01"
-    test_end: "2020-12-31"    # 3年测试
-  
-  # ---------- 合并数据时间范围 ----------
-  # 合并后：2005-01-01 到 2026-02-06
-  combined:
-    data_start: "2005-01-01"
-    data_end: "2026-02-06"
-    train_start: "2005-01-01"
-    train_end: "2018-12-31"   # 14年训练
-    valid_start: "2019-01-01"
-    valid_end: "2020-12-31"   # 2年验证
-    test_start: "2021-01-01"
-    test_end: "2026-02-06"    # 约5年测试
-  
-  # ---------- 混合数据时间范围 ----------
-  # 训练验证：Qlib数据 (2005-2020)
-  # 测试：本地CSV数据 (2021-2026)
-  hybrid:
-    # Qlib数据用于训练验证
-    qlib:
-      data_start: "2005-01-01"
-      data_end: "2020-12-31"
-      train_start: "2005-01-01"
-      train_end: "2017-12-31"   # 13年训练
-      valid_start: "2018-01-01"
-      valid_end: "2020-12-31"   # 3年验证
-    # 本地CSV数据用于测试
-    local_csv:
-      data_start: "2021-08-01"
-      data_end: "2026-02-06"
-      test_start: "2021-08-01"
-      test_end: "2026-02-06"    # 约4.5年测试
-  
-  # ---------- 滚动窗口配置（可选） ----------
-  use_rolling_window: false
-  rolling_window:
-    window_size: 252  # 1年交易日
-    step_size: 63     # 1季度
-    min_train_size: 126  # 半年
-
-# ========== 特征工程配置 ==========
 features:
-  fzt_formula: true
-  technical_factors:
-    - "momentum"
-    - "volatility"
-    - "volume"
-    - "price_action"
-    - "technical_indicators"
-
-# ========== 数据处理配置 ==========
-processing:
-  normalize: true
-  fill_na: true
-  remove_outliers: true
-  forward_fill: false  # 本地CSV数据没有前复权因子
-
-# ========== 股票筛选配置 ==========
-stock_filter:
-  min_days: 60  # 最少交易日数
-  exclude_st: true  # 排除ST股票
-  exclude_suspended: true  # 排除停牌股票
-  min_price: 1.0  # 最低价格（元）
-  max_price: 1000.0  # 最高价格（元）
+  # 特征配置
+  alpha158:
+    enabled: true
+    factors:
+      - volume      # 成交量因子
+      - volatility  # 波动率因子
+      - bias        # 乖离率因子
+      - liquidity   # 流动性因子
+      - market_cap  # 市值因子
+      - technical   # 技术指标
+  
+fzt:
+  # FZT配置
+  enabled: true
+  config_file: "config/fzt_config.yaml"
+  
+model:
+  # 模型默认配置
+  type: "lightgbm"
+  params:
+    objective: "binary"
+    metric: "binary_logloss"
+    learning_rate: 0.05
+    num_leaves: 63
+    max_depth: 7
+    min_child_samples: 10
+    subsample: 0.8
+    colsample_bytree: 0.8
+    reg_alpha: 0.1
+    reg_lambda: 0.1
+    random_state: 42
+    n_estimators: 100
+    verbose: -1
+  
+backtest:
+  # 回测默认配置
+  initial_capital: 1000000  # 初始资金100万
+  position_size: 0.1        # 每只股票仓位10%
+  max_positions: 10         # 最多持有10只股票
+  transaction_cost: 0.001   # 交易成本0.1%
+  stop_loss: 0.05           # 止损5%
+  take_profit: 0.10         # 止盈10%
+  
+output:
+  # 输出配置
+  results_dir: "results/"
+  models_dir: "results/models/"
+  reports_dir: "results/reports/"
+  logs_dir: "logs/"

@@ -1,0 +1,76 @@
+# fzt_config.yaml - FZT公式配置
+
+# ========== 动量配置 ==========
+momentum:
+  # 动量计算窗口（天数）
+  windows: [5, 10, 20, 60]
+  # 各窗口权重（总和应为1）
+  weights: [0.4, 0.3, 0.2, 0.1]
+  # 动量因子在FZT公式中的权重
+  weight: 0.5
+
+# ========== 成交量确认配置 ==========
+volume:
+  # 成交量变化计算窗口
+  window: 5
+  # 成交量因子在FZT公式中的权重
+  weight: 0.2
+
+# ========== 价格强度配置 ==========
+strength:
+  # 价格强度计算窗口
+  window: 20
+  # 价格强度因子在FZT公式中的权重
+  weight: 0.2
+
+# ========== 波动率调整配置 ==========
+volatility:
+  # 波动率计算窗口
+  window: 20
+  # 波动率因子在FZT公式中的权重
+  weight: 0.1
+  # 波动率调整因子（防止除零）
+  adjustment_factor: 0.01
+
+# ========== 标准化配置 ==========
+normalization:
+  # 标准化窗口
+  window: 60
+
+# ========== 信号阈值配置 ==========
+signals:
+  # 强买入信号阈值
+  strong_buy: 1.0
+  # 弱买入信号阈值
+  weak_buy: 0.2
+  # 弱卖出信号阈值
+  weak_sell: -0.2
+  # 强卖出信号阈值
+  strong_sell: -1.0
+
+# ========== 批量计算配置 ==========
+batch:
+  # 批量计算时是否并行处理
+  parallel: true
+  # 并行处理的最大工作进程数
+  max_workers: 4
+  # 批量计算进度显示间隔（股票数）
+  progress_interval: 10
+
+# ========== 缓存配置 ==========
+cache:
+  # 是否启用中间结果缓存
+  enabled: true
+  # 缓存目录
+  cache_dir: "./cache/fzt_formula"
+  # 缓存过期时间（秒）
+  ttl: 86400  # 24小时
+
+# ========== 日志配置 ==========
+logging:
+  # 日志级别：DEBUG, INFO, WARNING, ERROR
+  level: "INFO"
+  # 日志文件路径
+  file: "./logs/fzt_formula.log"
+  # 是否在控制台显示日志
+  console: true

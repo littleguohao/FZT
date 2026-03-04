@@ -1,0 +1,79 @@
+# FZT-LambdaRank整合流水线配置
+
+# FZT预筛选配置
+fzt_prescreen:
+  enabled: true
+  threshold: 0.0  # FZT>0的阈值
+  min_screened: 10  # 最少筛选股票数，如果少于这个数，使用所有股票
+  
+# 特征工程配置
+feature_engineering:
+  # 基础特征
+  price_features: true
+  volume_features: true
+  return_features: true
+  
+  # 技术指标
+  moving_averages: true
+  volatility: true
+  momentum: true
+  price_position: true
+  
+  # 特征处理
+  normalization: true
+  neutralization: true
+  feature_selection: true
+  max_features: 50
+  
+# LambdaRank配置
+lambdarank:
+  objective: "lambdarank"
+  metric: "ndcg"
+  learning_rate: 0.05
+  num_leaves: 31
+  num_iterations: 100
+  early_stopping_rounds: 10
+  random_state: 42
+  max_position: 10  # 最大排序位置
+  
+# 排序选择配置
+selection:
+  top_k: 5  # 每日选择Top K股票
+  min_confidence: 0.6  # 最小置信度阈值
+  diversification: true  # 是否分散化选择
+  
+# 回测配置
+backtest:
+  initial_capital: 1000000  # 初始资金100万
+  commission_rate: 0.0003  # 佣金率0.03%
+  stamp_tax_rate: 0.001  # 印花税率0.1%
+  slippage_rate: 0.0005  # 滑点率0.05%
+  position_limit: 0.2  # 单只股票仓位限制20%
+  
+# 数据配置
+data:
+  lookback_days: 60  # 回看天数
+  lookahead_days: 1  # 前瞻天数（T+1）
+  train_start: "2005-01-01"
+  train_end: "2017-12-31"
+  val_start: "2018-01-01"
+  val_end: "2020-12-31"
+  test_start: "2021-01-01"
+  test_end: "2026-02-06"
+  
+# 评估配置
+evaluation:
+  metrics:
+    - "ndcg@5"
+    - "map@5"
+    - "precision@5"
+    - "recall@5"
+    - "mrr"
+  report_format: "detailed"  # detailed/summary
+  
+# 输出配置
+output:
+  model_dir: "results/pipeline_models"
+  report_dir: "results/pipeline_reports"
+  log_level: "INFO"
+  save_intermediate: true
