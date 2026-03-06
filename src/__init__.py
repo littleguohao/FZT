@@ -2,48 +2,32 @@
 FZT量化选股项目 - 源代码包
 
 包含以下模块：
-- data_prep: 数据准备模块
-- fzt_formula: FZT选股公式计算模块
-- model_train: 模型训练模块（待实现）
-- backtest: 回测模块（待实现）
-- feature_eng: 特征工程模块（待实现）
+- fzt_brick_formula: FZT砖型图公式（原始复杂版本）
+- fzt_core: FZT核心计算模块（通用函数）
+
+作者: MC
+创建日期: 2026-03-06
 """
 
-__version__ = "0.1.0"
-__author__ = "FZT项目组"
-__email__ = "fzt-project@example.com"
+__version__ = "1.0.0"
+__author__ = "MC"
+__email__ = ""
 
-# 导出主要类
-from .data_prep import DataPreprocessor
-from .fzt_formula import FZTFormula, calculate_target, create_sample_data
+# 导出主要模块
 from .fzt_brick_formula import FZTBrickFormula
-from .feature_eng import FeatureEngineer
-from .model_train import ModelTrainer
-from .evaluate import ModelEvaluator
-from .hybrid_data_processor import HybridDataProcessor
-
-# 导出回测模块
-from .backtest import (
-    BacktestEngine, BacktestConfig, SignalType, PositionStatus,
-    Trade, Position, PerformanceEvaluator, ReportGenerator
+from .fzt_core import (
+    tdx_sma_series,
+    tdx_sma,
+    calc_brick_pattern_final,
+    calculate_fzt_features_vectorized,
+    test_fzt_core
 )
 
 __all__ = [
-    "DataPreprocessor",
-    "FZTFormula",
     "FZTBrickFormula",
-    "FeatureEngineer",
-    "ModelTrainer",
-    "ModelEvaluator",
-    "HybridDataProcessor",
-    "BacktestEngine",
-    "BacktestConfig",
-    "SignalType",
-    "PositionStatus",
-    "Trade",
-    "Position",
-    "PerformanceEvaluator",
-    "ReportGenerator",
-    "calculate_target",
-    "create_sample_data"
+    "tdx_sma_series",
+    "tdx_sma",
+    "calc_brick_pattern_final",
+    "calculate_fzt_features_vectorized",
+    "test_fzt_core"
 ]
