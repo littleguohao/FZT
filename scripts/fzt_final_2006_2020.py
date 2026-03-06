@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-最终版2006-2020年FZT公式回测（使用通用FZT核心模块）
+最终版2006-2020年FZT公式回测（使用通用模块）
 
 结合用户提供的两个参考文件：
 1. 优化参考：全市场向量化一次性计算
@@ -25,9 +25,10 @@ import time
 import warnings
 warnings.filterwarnings('ignore')
 
-# 导入通用FZT核心模块
+# 导入通用模块
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from src.fzt_core import calc_brick_pattern_final, calculate_fzt_features_vectorized
+from src.fzt_core import calc_brick_pattern_final
+from src.data_loader import load_qlib_data_all_instruments
 
 # 设置日志
 logging.basicConfig(
@@ -35,69 +36,6 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
-
-
-# ===================== QLIB数据加载函数 =====================
-def load_qlib_data_all_instruments(
-    instruments: list,
-    calc_start: str,
-    calc_end: str,
-    fields: list = None
-) -> pd.DataFrame:
-    """
-    一次性加载所有股票的数据（基于优化参考：全市场向量化）
-    """
-    if fields is None:
-        fields = ['$close', '$high', '$low', '$open', '$volume', '$factor']
-    
-    import qlib
-    from qlib.data import D
-    from qlib.config import REG_CN
-    
-    print(f"📥 加载 {len(instruments)} 只股票数据...")
-    load_start = time.time()
-    
-    try:
-        # 使用QLIB的D.features一次性获取所有数据
-        df_all = D.features(
-            instruments,
-            fields,
-            start_time=calc_start,
-            end_time=calc_end,
-            freq='day'
-        )
-        
-        # 重置索引，获取多级索引的各个级别
-        df_reset = df_all.reset_index()
-        
-        # 重命名列
-        column_mapping = {
-            '$close': 'close',
-            '$high': 'high', 
-            '$low': 'low',
-            '$open': 'open',
-            '$volume': 'volume',
-            '$factor': 'factor'
-        }
-        df_reset = df_reset.rename(columns=column_mapping)
-        
-        # 前复权处理（基于FZT参考实现）
-        for price_col in ['open', 'high', 'low', 'close']:
-            if price_col in df_reset.columns and 'factor' in df_reset.columns:
-                df_reset[price_col] = df_reset[price_col] * df_reset['factor']
-        
-        load_time = time.time() - load_start
-        print(f"✅ 数据加载完成，耗时: {load_time:.2f} 秒")
-        print(f"   总数据行数: {len(df_reset)}")
-        print(f"   时间范围: {df_reset['datetime'].min()} 到 {df_reset['datetime'].max()}")
-        
-        return df_reset
-        
-    except Exception as e:
-        print(f"❌ 数据加载失败: {e}")
-        import traceback
-        traceback.print_exc()
-        return None
 
 
 # ===================== 最终版2006-2020年回测 =====================
@@ -149,7 +87,7 @@ def final_2006_2020_backtest():
         print(f"✅ 获取到 {len(instruments)} 只股票")
         print(f"   股票示例: {instruments[:5]}...")
         
-        # 2. 一次性加载所有股票数据（基于优化参考）
+        # 2. 一次性加载所有股票数据（使用数据加载模块）
         print("\n📥 一次性加载所有股票数据...")
         df = load_qlib_data_all_instruments(
             instruments=instruments,

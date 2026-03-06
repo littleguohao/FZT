@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-最终版2021-2026年FZT公式回测（使用通用FZT核心模块）
+最终版2021-2026年FZT公式回测（使用通用模块）
 
 结合用户提供的两个参考文件：
 1. 优化参考：全市场向量化一次性计算
@@ -19,16 +19,16 @@ import os
 import logging
 import pandas as pd
 import numpy as np
-import struct
 from pathlib import Path
 from datetime import datetime
 import time
 import warnings
 warnings.filterwarnings('ignore')
 
-# 导入通用FZT核心模块
+# 导入通用模块
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from src.fzt_core import calc_brick_pattern_final, calculate_fzt_features_vectorized
+from src.fzt_core import calc_brick_pattern_final
+from src.data_loader import load_all_stock_data_bin
 
 # 设置日志
 logging.basicConfig(
@@ -36,96 +36,6 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
-
-
-# ===================== .bin数据加载函数 =====================
-def load_all_stock_data_bin(data_dir: str) -> tuple:
-    """
-    一次性加载所有股票的.bin格式数据
-    :param data_dir: 数据目录路径
-    :return: (DataFrame, 股票代码列表)
-    """
-    data_path = Path(data_dir)
-    
-    # 读取交易日历
-    calendar_file = data_path / 'calendars' / 'day.txt'
-    if not calendar_file.exists():
-        print(f"❌ 交易日历文件不存在: {calendar_file}")
-        return None, None
-    
-    with open(calendar_file, 'r', encoding='utf-8') as f:
-        calendar_dates = [line.strip() for line in f if line.strip()]
-    
-    print(f"📅 交易日历: {len(calendar_dates)} 个交易日")
-    print(f"   时间范围: {calendar_dates[0]} 到 {calendar_dates[-1]}")
-    
-    try:
-        # 获取所有股票代码
-        features_dir = data_path / 'features'
-        stock_dirs = [d for d in features_dir.iterdir() if d.is_dir()]
-        stock_codes = [d.name for d in stock_dirs]
-        
-        print(f"📊 找到 {len(stock_codes)} 个股票目录")
-        print(f"   使用所有 {len(stock_codes)} 只股票")
-        
-        # 准备存储所有数据
-        all_data = []
-        
-        for i, stock_code in enumerate(stock_codes, 1):
-            if i % 500 == 0:
-                print(f"   [{i}/{len(stock_codes)}] 加载股票数据...")
-            
-            try:
-                stock_dir = features_dir / stock_code
-                fields = ['open', 'high', 'low', 'close', 'volume']
-                field_data = {}
-                
-                # 读取所有字段
-                for field in fields:
-                    bin_file = stock_dir / f"{field}.day.bin"
-                    if bin_file.exists():
-                        with open(bin_file, 'rb') as f:
-                            start_index_bytes = f.read(4)
-                            start_index = struct.unpack('<f', start_index_bytes)[0]
-                            data_bytes = f.read()
-                            data = np.frombuffer(data_bytes, dtype='<f')
-                            if len(data) == len(calendar_dates):
-                                field_data[field] = data
-                
-                if len(field_data) != 5:
-                    continue
-                
-                # 创建股票DataFrame
-                df_stock = pd.DataFrame(field_data)
-                df_stock['datetime'] = [pd.Timestamp(d) for d in calendar_dates]
-                df_stock['instrument'] = stock_code
-                
-                all_data.append(df_stock)
-                
-            except Exception as e:
-                continue
-        
-        if not all_data:
-            print("❌ 没有成功加载任何股票数据")
-            return None, None
-        
-        # 合并所有数据
-        print("🔄 合并所有股票数据...")
-        df = pd.concat(all_data, ignore_index=True)
-        
-        # 按股票和时间排序
-        df = df.sort_values(['instrument', 'datetime'])
-        
-        print(f"✅ 数据加载完成")
-        print(f"   总数据行数: {len(df)}")
-        print(f"   股票数量: {len(stock_codes)}")
-        print(f"   时间范围: {df['datetime'].min()} 到 {df['datetime'].max()}")
-        
-        return df, stock_codes
-        
-    except Exception as e:
-        print(f"❌ 数据加载失败: {e}")
-        return None, None
 
 
 # ===================== 最终版2021-2026年回测 =====================
@@ -148,7 +58,7 @@ def final_2021_2026_backtest():
         
         print(f"🎯 回测时间范围: {target_start} 到 {target_end}")
         
-        # 1. 一次性加载所有股票数据（基于优化参考）
+        # 1. 一次性加载所有股票数据（使用数据加载模块）
         print("\n📥 一次性加载所有股票数据...")
         data_load_start = time.time()
         df, stock_codes = load_all_stock_data_bin(data_dir)
