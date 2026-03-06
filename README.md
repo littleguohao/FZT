@@ -18,38 +18,43 @@
 - **复权处理**：保证价格连续性
 - **批量处理**：全市场一次性计算，避免循环
 
-### **🔧 项目精简**
-- **只保留核心文件**：2个最终版脚本 + 3个核心公式文件
-- **完全自包含**：数据在项目目录内，不依赖外部路径
-- **Git友好**：大文件被正确忽略，仓库保持轻量
+### **🔧 模块化设计**
+- **清晰职责分离**：公共函数在`src/`中，私有配置在脚本中
+- **极度精简**：只有5个Python文件（2脚本 + 3模块）
+- **高度可重用**：`src/`中的模块可以被其他项目使用
+- **完全自包含**：每个脚本包含完整的数据配置
 
 ## 📁 项目结构
 
+### **GitHub仓库内容（极度精简）**
 ```
-FZT_Quant/
+FZT_Quant/                              # 主目录
 ├── README.md                           # 项目说明（本文件）
 ├── requirements.txt                    # Python依赖包
-├── .gitignore                          # Git忽略规则
+├── .gitignore                          # Git忽略规则（排除大数据文件）
 ├── scripts/                            # ✅ 回测脚本目录
-│   ├── fzt_final_2006_2020.py          # ✅ 2006-2020年回测脚本
-│   └── fzt_final_2021_2026.py          # ✅ 2021-2026年回测脚本
-└── src/                                # ✅ 核心公式实现
-    ├── __init__.py
-    ├── fzt_brick_formula.py            # ✅ 原始FZT公式实现
-    └── fzt_formula.py                  # ✅ FZT公式模块
+│   ├── fzt_final_2006_2020.py          # ✅ 2006-2020年回测脚本（包含私有数据配置）
+│   └── fzt_final_2021_2026.py          # ✅ 2021-2026年回测脚本（包含私有数据配置）
+└── src/                                # ✅ 核心模块目录
+    ├── __init__.py                     # 模块导出文件
+    ├── fzt_core.py                     # ✅ FZT核心计算模块（通用函数）
+    └── data_loader.py                  # ✅ 公共数据加载模块（不包含私有数据路径）
+```
 
-# 本地额外文件（被.gitignore忽略）
-data/                                   # 数据目录（120MB，不推送到GitHub）
-├── 2006_2020/                          # 2006-2020年数据
+### **本地额外文件（被.gitignore忽略）**
+```
+data/                                   # 数据目录（约120MB，不推送到GitHub）
+├── 2006_2020/                          # 2006-2020年QLIB标准数据
 │   ├── calendars/day.txt               # 交易日历
 │   ├── features/                       # 3875只股票.bin数据
-│   └── instruments/                    # 股票列表
-└── 2021_2026/                          # 2021-2026年数据
+│   └── instruments/all.txt             # 股票列表
+└── 2021_2026/                          # 2021-2026年自定义转换数据
     ├── calendars/day.txt               # 自定义交易日历
     ├── features/                       # 5484只股票.bin数据
-    └── fixed_conversion_report.txt     # 数据转换报告
-logs/                                   # 执行日志目录
-results/                                # 回测结果目录
+    └── instruments/all.txt             # 股票列表
+
+logs/                                   # 执行日志目录（自动生成）
+results/                                # 回测结果目录（自动生成）
 ```
 
 ## 🚀 快速开始
@@ -93,6 +98,58 @@ python scripts/fzt_final_2021_2026.py
 - **2006-2020年**：46.06% - 60.89%（平均51.45%）
 - **2021-2026年**：44.53% - 48.49%（平均46.68%）
 - **整体**：接近随机水平（50%），作为独立选股策略效果有限
+
+## 🏗️ 模块设计
+
+### **1. `src/fzt_core.py` - FZT核心计算模块**
+```python
+# 通达信SMA递归算法（精准复刻）
+def tdx_sma_series(series_vals: np.ndarray, N: int, M: int = 1) -> np.ndarray
+def tdx_sma(group_series: pd.Series, N: int, M: int = 1) -> pd.Series
+
+# 完整FZT公式计算
+def calc_brick_pattern_final(df_raw: pd.DataFrame, ...) -> pd.DataFrame
+
+# 向量化计算
+def calculate_fzt_features_vectorized(df: pd.DataFrame) -> pd.DataFrame
+```
+
+### **2. `src/data_loader.py` - 公共数据加载模块**
+```python
+# 通用QLIB数据加载（不包含私有数据路径）
+def load_stock_data_qlib(data_dir, instruments, calc_start, calc_end, ...)
+
+# 读取股票列表
+def get_instruments_from_file(instruments_file)
+```
+
+### **3. 脚本中的私有数据配置**
+```python
+# 在scripts/fzt_final_2006_2020.py中
+def load_2006_2020_data(project_root):
+    data_dir = str(project_root / 'data' / '2006_2020')  # 私有路径
+    instruments = instruments[:3875]  # 私有配置
+    return load_stock_data_qlib(data_dir, instruments, ...)  # 调用公共函数
+
+# 在scripts/fzt_final_2021_2026.py中  
+def load_2021_2026_data(project_root):
+    data_dir = str(project_root / 'data' / '2021_2026')  # 私有路径
+    instruments = instruments[:5484]  # 私有配置
+    return load_stock_data_qlib(data_dir, instruments, ...)  # 调用公共函数
+```
+
+### **设计原则：**
+- **公共函数在模块中**：可重用、不依赖具体数据路径
+- **私有配置在脚本中**：自包含、完整的数据配置
+- **清晰的职责分离**：通用功能 vs 具体实现
+
+## 📈 性能对比
+
+| 优化阶段 | 2006-2020年 | 2021-2026年 | 性能提升 |
+|----------|-------------|-------------|----------|
+| **原始循环** | 数小时 | 数小时 | 1× |
+| **批量处理** | 数十分钟 | 数十分钟 | 10× |
+| **向量化优化** | **27.03秒** | **24.43秒** | **1000×** |
 
 ## 🔧 技术实现
 
@@ -140,51 +197,68 @@ seaborn>=0.12.0      # 统计可视化
 jupyter>=1.0.0       # 交互式笔记本
 ```
 
-## 🔍 代码示例
+## 🔍 使用示例
 
-### **主要功能模块**
-```python
-# 1. 通达信SMA递归算法（精准复刻）
-def tdx_sma_series(series_vals: np.ndarray, N: int, M: int = 1) -> np.ndarray:
-    """精准复刻通达信SMA(X,N,M)递归算法"""
-    # 实现细节...
+### **1. 运行完整回测**
+```bash
+# 2006-2020年回测
+python scripts/fzt_final_2006_2020.py
 
-# 2. 向量化FZT计算
-def calculate_fzt_features_vectorized(df: pd.DataFrame) -> pd.DataFrame:
-    """向量化计算FZT特征（全市场一次性计算）"""
-    # 实现细节...
-
-# 3. 批量数据加载
-def load_all_stock_data_bin(data_dir: str) -> Tuple[pd.DataFrame, List[str]]:
-    """一次性加载所有股票的.bin格式数据"""
-    # 实现细节...
+# 2021-2026年回测
+python scripts/fzt_final_2021_2026.py
 ```
 
-### **执行流程**
+### **2. 使用核心模块（在其他项目中）**
 ```python
-# 1. 初始化QLIB（使用项目内数据）
-project_root = Path(__file__).parent.parent
-data_path = str(project_root / 'data' / '2006_2020')
-qlib.init(provider_uri=data_path, region=REG_CN)
+# 导入公共模块
+from src.fzt_core import calc_brick_pattern_final, tdx_sma
+from src.data_loader import load_stock_data_qlib, get_instruments_from_file
 
-# 2. 一次性获取全市场数据
-df, stock_codes = load_all_stock_data_bin(data_path)
+# 加载数据（使用你自己的数据路径）
+data_dir = 'your/data/path'
+instruments = ['SH000300', 'SZ002790']
+df = load_stock_data_qlib(
+    data_dir=data_dir,
+    instruments=instruments,
+    calc_start='2020-01-01',
+    calc_end='2020-12-31'
+)
 
-# 3. 向量化计算FZT特征
-df = calculate_fzt_features_vectorized(df)
+# 计算FZT信号
+df_with_fzt = calc_brick_pattern_final(df)
 
-# 4. 筛选信号并评估成功率
-signals = df[df['fzt_signal'] == True]
-success_rate = signals['success'].mean()
+# 使用通达信SMA算法
+sma_result = tdx_sma(data_series, N=4, M=1)
 ```
 
-## 📈 性能对比
+### **3. 创建新的回测脚本**
+```python
+# 基于现有模板创建新脚本
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
-| 优化阶段 | 2006-2020年 | 2021-2026年 | 性能提升 |
-|----------|-------------|-------------|----------|
-| **原始循环** | 数小时 | 数小时 | 1× |
-| **批量处理** | 数十分钟 | 数十分钟 | 10× |
-| **向量化优化** | **27.03秒** | **24.43秒** | **1000×** |
+from src.fzt_core import calc_brick_pattern_final
+from src.data_loader import load_stock_data_qlib
+
+def load_my_data(project_root: Path):
+    """你的私有数据加载函数"""
+    data_dir = str(project_root / 'data' / 'my_data')
+    instruments = get_instruments_from_file(data_dir + '/instruments/all.txt')
+    return load_stock_data_qlib(
+        data_dir=data_dir,
+        instruments=instruments,
+        calc_start='2010-01-01',
+        calc_end='2015-12-31'
+    )
+
+def my_backtest():
+    """你的回测函数"""
+    project_root = Path(__file__).parent.parent
+    df = load_my_data(project_root)
+    df = calc_brick_pattern_final(df)
+    # ... 你的回测逻辑
+```
 
 ## 🎯 使用场景
 
@@ -258,6 +332,6 @@ success_rate = signals['success'].mean()
 
 ---
 
-**最后更新：2026-03-06**
+**最后更新：2026-03-07**
 
-**项目状态：✅ 完成 - 精简、优化、可维护**
+**项目状态：✅ 完成 - 极度精简、模块化、可维护**
