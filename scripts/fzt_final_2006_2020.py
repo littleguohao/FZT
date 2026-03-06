@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-最终版2006-2020年FZT公式回测（使用统一数据加载模块）
+最终版2006-2020年FZT公式回测
 
 结合用户提供的两个参考文件：
 1. 优化参考：全市场向量化一次性计算
@@ -24,10 +24,10 @@ import time
 import warnings
 warnings.filterwarnings('ignore')
 
-# 导入通用模块
+# 导入公共模块
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from src.fzt_core import calc_brick_pattern_final
-from src.data_loader import load_2006_2020_data
+from src.data_loader import load_stock_data_qlib, get_instruments_from_file
 
 # 设置日志
 logging.basicConfig(
@@ -35,6 +35,31 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+
+
+# ===================== 私有数据加载函数（放在脚本中） =====================
+def load_2006_2020_data(project_root: Path) -> Optional[pd.DataFrame]:
+    """
+    加载2006-2020年数据（私有函数，放在脚本中）
+    """
+    data_dir = str(project_root / 'data' / '2006_2020')
+    instruments_file = project_root / 'data' / '2006_2020' / 'instruments' / 'all.txt'
+    
+    instruments = get_instruments_from_file(instruments_file)
+    if not instruments:
+        return None
+    
+    # 使用所有3875只股票
+    instruments = instruments[:3875]
+    
+    return load_stock_data_qlib(
+        data_dir=data_dir,
+        instruments=instruments,
+        calc_start='2005-10-01',
+        calc_end='2020-09-25',
+        target_start='2006-01-01',
+        target_end='2020-09-25'
+    )
 
 
 # ===================== 最终版2006-2020年回测 =====================
@@ -48,7 +73,7 @@ def final_2006_2020_backtest():
         start_time = time.time()
         project_root = Path(__file__).parent.parent
         
-        # 1. 使用统一数据加载模块加载数据
+        # 1. 使用私有数据加载函数加载数据
         print("\n📥 加载2006-2020年数据...")
         df = load_2006_2020_data(project_root)
         
@@ -56,7 +81,7 @@ def final_2006_2020_backtest():
             print("❌ 数据加载失败，无法继续")
             return 1
         
-        # 2. 计算FZT指标（使用通用FZT核心模块）
+        # 2. 计算FZT指标（使用公共FZT核心模块）
         print("\n🧮 计算FZT指标（向量化计算）...")
         calc_start_time = time.time()
         

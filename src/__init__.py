@@ -3,7 +3,7 @@ FZT量化选股项目 - 源代码包
 
 包含以下模块：
 - fzt_core: FZT核心计算模块（通用函数）
-- data_loader: 统一数据加载模块（使用QLIB API）
+- data_loader: 公共数据加载模块（不包含私有数据路径）
 
 作者: MC
 创建日期: 2026-03-07
@@ -22,13 +22,11 @@ from .fzt_core import (
     test_fzt_core
 )
 
-# 导出统一数据加载模块
+# 导出公共数据加载模块
 from .data_loader import (
     load_stock_data_qlib,
     get_instruments_from_file,
-    load_2006_2020_data,
-    load_2021_2026_data,
-    test_unified_loader
+    test_public_loader
 )
 
 __all__ = [
@@ -39,10 +37,8 @@ __all__ = [
     "calculate_fzt_features_vectorized",
     "test_fzt_core",
     
-    # 统一数据加载函数
+    # 公共数据加载函数
     "load_stock_data_qlib",
     "get_instruments_from_file",
-    "load_2006_2020_data",
-    "load_2021_2026_data",
-    "test_unified_loader"
+    "test_public_loader"
 ]

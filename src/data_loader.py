@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-统一数据加载模块 - 使用QLIB API加载所有数据
+公共数据加载模块 - 只包含通用的数据加载函数
 
-基于发现：自定义.bin文件也兼容QLIB的D.features() API
-因此可以统一使用QLIB API加载两种数据源
+不包含具体的私有数据路径和参数，这些应该放在各个脚本中
 
 作者: MC
 创建日期: 2026-03-07
@@ -29,7 +28,7 @@ def load_stock_data_qlib(
     fields: Optional[List[str]] = None
 ) -> Optional[pd.DataFrame]:
     """
-    使用QLIB API统一加载股票数据（支持标准QLIB和自定义.bin格式）
+    使用QLIB API加载股票数据（公共函数）
     
     :param data_dir: 数据目录路径
     :param instruments: 股票代码列表
@@ -110,7 +109,7 @@ def load_stock_data_qlib(
 
 def get_instruments_from_file(instruments_file: str) -> List[str]:
     """
-    从instruments文件读取股票代码列表
+    从instruments文件读取股票代码列表（公共函数）
     
     :param instruments_file: instruments文件路径
     :return: 股票代码列表
@@ -137,98 +136,31 @@ def get_instruments_from_file(instruments_file: str) -> List[str]:
         return []
 
 
-def load_2006_2020_data(
-    project_root: Path,
-    calc_start: str = '2005-10-01',
-    calc_end: str = '2020-09-25',
-    target_start: str = '2006-01-01',
-    target_end: str = '2020-09-25'
-) -> Optional[pd.DataFrame]:
-    """
-    加载2006-2020年数据（QLIB标准格式）
-    """
-    data_dir = str(project_root / 'data' / '2006_2020')
-    instruments_file = project_root / 'data' / '2006_2020' / 'instruments' / 'all.txt'
-    
-    instruments = get_instruments_from_file(instruments_file)
-    if not instruments:
-        return None
-    
-    # 使用所有3875只股票
-    instruments = instruments[:3875]
-    
-    return load_stock_data_qlib(
-        data_dir=data_dir,
-        instruments=instruments,
-        calc_start=calc_start,
-        calc_end=calc_end,
-        target_start=target_start,
-        target_end=target_end
-    )
-
-
-def load_2021_2026_data(
-    project_root: Path,
-    calc_start: str = '2021-08-02',
-    calc_end: str = '2026-02-06',
-    target_start: str = '2021-08-02',
-    target_end: str = '2026-02-06'
-) -> Optional[pd.DataFrame]:
-    """
-    加载2021-2026年数据（自定义.bin格式，但兼容QLIB API）
-    """
-    data_dir = str(project_root / 'data' / '2021_2026')
-    instruments_file = project_root / 'data' / '2021_2026' / 'instruments' / 'all.txt'
-    
-    instruments = get_instruments_from_file(instruments_file)
-    if not instruments:
-        return None
-    
-    # 使用所有5484只股票
-    instruments = instruments[:5484]
-    
-    return load_stock_data_qlib(
-        data_dir=data_dir,
-        instruments=instruments,
-        calc_start=calc_start,
-        calc_end=calc_end,
-        target_start=target_start,
-        target_end=target_end
-    )
-
-
 # ===================== 测试函数 =====================
-def test_unified_loader():
-    """测试统一数据加载模块"""
-    print("🧪 测试统一数据加载模块...")
+def test_public_loader():
+    """测试公共数据加载模块"""
+    print("🧪 测试公共数据加载模块...")
     
-    project_root = Path(__file__).parent.parent
-    
-    # 测试2006-2020年数据加载
-    print("\n1. 测试2006-2020年数据加载...")
+    # 测试get_instruments_from_file
+    print("  测试get_instruments_from_file...")
     try:
-        df_2006 = load_2006_2020_data(project_root)
-        if df_2006 is not None:
-            print(f"   ✅ 加载成功，数据形状: {df_2006.shape}")
-        else:
-            print("   ❌ 加载失败")
+        # 创建一个测试文件
+        test_file = Path(__file__).parent / 'test_instruments.txt'
+        with open(test_file, 'w', encoding='utf-8') as f:
+            f.write("SH000300\nSH000903\nSH600000\n")
+        
+        instruments = get_instruments_from_file(str(test_file))
+        print(f"   读取到 {len(instruments)} 只股票: {instruments}")
+        
+        # 清理测试文件
+        test_file.unlink()
+        
     except Exception as e:
-        print(f"   ❌ 测试失败: {e}")
+        print(f"   测试失败: {e}")
     
-    # 测试2021-2026年数据加载
-    print("\n2. 测试2021-2026年数据加载...")
-    try:
-        df_2021 = load_2021_2026_data(project_root)
-        if df_2021 is not None:
-            print(f"   ✅ 加载成功，数据形状: {df_2021.shape}")
-        else:
-            print("   ❌ 加载失败")
-    except Exception as e:
-        print(f"   ❌ 测试失败: {e}")
-    
-    print("\n✅ 统一数据加载模块测试完成")
+    print("✅ 公共数据加载模块测试完成")
     return True
 
 
 if __name__ == "__main__":
-    test_unified_loader()
+    test_public_loader()
