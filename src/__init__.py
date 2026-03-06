@@ -2,7 +2,6 @@
 FZT量化选股项目 - 源代码包
 
 包含以下模块：
-- fzt_brick_formula: FZT砖型图公式（原始复杂版本）
 - fzt_core: FZT核心计算模块（通用函数）
 
 作者: MC
@@ -14,7 +13,6 @@ __author__ = "MC"
 __email__ = ""
 
 # 导出主要模块
-from .fzt_brick_formula import FZTBrickFormula
 from .fzt_core import (
     tdx_sma_series,
     tdx_sma,
@@ -24,7 +22,6 @@ from .fzt_core import (
 )
 
 __all__ = [
-    "FZTBrickFormula",
     "tdx_sma_series",
     "tdx_sma",
     "calc_brick_pattern_final",
