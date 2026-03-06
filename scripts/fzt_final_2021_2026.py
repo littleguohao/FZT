@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-最终版2021-2026年FZT公式回测（使用通用模块）
+最终版2021-2026年FZT公式回测（使用统一数据加载模块）
 
 结合用户提供的两个参考文件：
 1. 优化参考：全市场向量化一次性计算
 2. FZT参考实现：通达信SMA递归算法 + 复权处理
 
 作者: MC
-创建日期: 2026-03-06
+创建日期: 2026-03-07
 参考文件：
 1. 优化参考---9f1f0f32-521a-423b-8027-090c283c9de7.txt
 2. FZT参考实现---5134fc49-465f-427a-898e-9fea5d032908.txt
@@ -20,7 +20,6 @@ import logging
 import pandas as pd
 import numpy as np
 from pathlib import Path
-from datetime import datetime
 import time
 import warnings
 warnings.filterwarnings('ignore')
@@ -28,7 +27,7 @@ warnings.filterwarnings('ignore')
 # 导入通用模块
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from src.fzt_core import calc_brick_pattern_final
-from src.data_loader import load_all_stock_data_bin
+from src.data_loader import load_2021_2026_data
 
 # 设置日志
 logging.basicConfig(
@@ -47,38 +46,21 @@ def final_2021_2026_backtest():
         print("=" * 80)
         
         start_time = time.time()
-        
-        # 数据目录（使用项目内数据）
         project_root = Path(__file__).parent.parent
-        data_dir = str(project_root / 'data' / '2021_2026')
         
-        # 设置时间范围
-        target_start = '2021-08-02'
-        target_end = '2026-02-06'
-        
-        print(f"🎯 回测时间范围: {target_start} 到 {target_end}")
-        
-        # 1. 一次性加载所有股票数据（使用数据加载模块）
-        print("\n📥 一次性加载所有股票数据...")
-        data_load_start = time.time()
-        df, stock_codes = load_all_stock_data_bin(data_dir)
-        data_load_time = time.time() - data_load_start
+        # 1. 使用统一数据加载模块加载数据
+        print("\n📥 加载2021-2026年数据...")
+        df = load_2021_2026_data(project_root)
         
         if df is None or df.empty:
             print("❌ 数据加载失败，无法继续")
             return 1
         
-        print(f"   数据加载耗时: {data_load_time:.2f} 秒")
-        
         # 2. 计算FZT指标（使用通用FZT核心模块）
         print("\n🧮 计算FZT指标（向量化计算）...")
         calc_start_time = time.time()
         
-        df = calc_brick_pattern_final(
-            df_raw=df,
-            target_start_date=target_start,
-            target_end_date=target_end
-        )
+        df = calc_brick_pattern_final(df)
         
         calc_time = time.time() - calc_start_time
         print(f"✅ FZT计算完成，耗时: {calc_time:.2f} 秒")
@@ -136,8 +118,7 @@ def final_2021_2026_backtest():
             f.write("=" * 60 + "\n")
             f.write("FZT公式回测报告 (2021-2026年)\n")
             f.write("=" * 60 + "\n\n")
-            f.write(f"回测时间范围: {target_start} 到 {target_end}\n")
-            f.write(f"股票数量: {len(stock_codes)}\n")
+            f.write(f"回测时间范围: 2021-08-02 到 2026-02-06\n")
             f.write(f"总FZT信号数: {total_signals:,}\n")
             f.write(f"成功信号数: {successful_signals:,}\n")
             f.write(f"整体成功率: {success_rate:.2%}\n\n")
