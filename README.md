@@ -1,294 +1,263 @@
-# FZT量化选股模型
+# FZT选股公式回测系统
 
-基于FZT选股公式和LightGBM机器学习的量化选股系统。
+基于原始FZT公式（VAR1A-VAR6A复杂计算）的量化回测系统，覆盖2006-2026年共20.5年A股数据。
 
-## 项目结构
+## 🎯 项目特点
+
+### **📊 数据完整性**
+- **时间跨度**：2006-01-01 至 2026-02-06（20.5年）
+- **股票覆盖**：9359只A股股票
+- **数据格式**：统一的QLIB .bin格式
+- **数据分割**：
+  - **2006-2020年**：3875只股票（QLIB标准数据）
+  - **2021-2026年**：5484只股票（自定义转换数据）
+
+### **🚀 技术优化**
+- **向量化计算**：1000倍性能提升（从数小时到几十秒）
+- **通达信SMA算法**：精准复刻原始FZT公式计算
+- **复权处理**：保证价格连续性
+- **批量处理**：全市场一次性计算，避免循环
+
+### **🔧 项目精简**
+- **只保留核心文件**：2个最终版脚本 + 3个核心公式文件
+- **完全自包含**：数据在项目目录内，不依赖外部路径
+- **Git友好**：大文件被正确忽略，仓库保持轻量
+
+## 📁 项目结构
 
 ```
 FZT_Quant/
-├── README.md                    # 项目说明文档
-├── requirements.txt             # Python依赖包
-├── .gitignore                   # Git忽略文件
-├── data/                        # 数据目录
-│   ├── raw/                     # 原始数据（不提交到Git）
-│   ├── processed/               # 处理后的数据（不提交到Git）
-│   └── features/                # 特征数据（不提交到Git）
-├── src/                         # 源代码
-│   ├── __init__.py              # Python包初始化
-│   ├── data_prep.py             # 数据准备模块
-│   ├── model_train.py           # 模型训练模块
-│   └── backtest.py              # 回测模块
-├── config/                      # 配置文件
-│   └── config.yaml              # 主配置文件
-├── notebooks/                   # Jupyter笔记本
-│   └── analysis.ipynb           # 数据分析笔记本
-├── results/                     # 结果输出（不提交到Git）
-│   ├── models/                  # 训练好的模型
-│   ├── predictions/             # 预测结果
-│   └── reports/                 # 分析报告
-└── docs/                        # 文档
-    └── methodology.md           # 方法论文档
+├── README.md                           # 项目说明（本文件）
+├── requirements.txt                    # Python依赖包
+├── .gitignore                          # Git忽略规则
+├── scripts/                            # ✅ 回测脚本目录
+│   ├── fzt_final_2006_2020.py          # ✅ 2006-2020年回测脚本
+│   └── fzt_final_2021_2026.py          # ✅ 2021-2026年回测脚本
+└── src/                                # ✅ 核心公式实现
+    ├── __init__.py
+    ├── fzt_brick_formula.py            # ✅ 原始FZT公式实现
+    └── fzt_formula.py                  # ✅ FZT公式模块
+
+# 本地额外文件（被.gitignore忽略）
+data/                                   # 数据目录（120MB，不推送到GitHub）
+├── 2006_2020/                          # 2006-2020年数据
+│   ├── calendars/day.txt               # 交易日历
+│   ├── features/                       # 3875只股票.bin数据
+│   └── instruments/                    # 股票列表
+└── 2021_2026/                          # 2021-2026年数据
+    ├── calendars/day.txt               # 自定义交易日历
+    ├── features/                       # 5484只股票.bin数据
+    └── fixed_conversion_report.txt     # 数据转换报告
+logs/                                   # 执行日志目录
+results/                                # 回测结果目录
 ```
 
-## 安装说明
+## 🚀 快速开始
 
-### 1. 环境要求
-- Python 3.8+
-- pip 20.0+
-
-### 2. 安装依赖
+### **1. 克隆仓库**
 ```bash
-# 创建虚拟环境（推荐）
-python -m venv venv
-source venv/bin/activate  # Linux/Mac
-# 或 venv\Scripts\activate  # Windows
+git clone git@github.com:littleguohao/FZT.git
+cd FZT
+```
 
-# 安装依赖包
+### **2. 安装依赖**
+```bash
 pip install -r requirements.txt
 ```
 
-### 3. 配置环境
+### **3. 准备数据**
+数据文件较大（约120MB），需要单独下载或从原始来源转换：
+- **2006-2020年数据**：QLIB标准cn_data
+- **2021-2026年数据**：自定义转换的.bin格式数据
+
+### **4. 运行回测**
 ```bash
-# 复制示例配置文件
-cp config/config.example.yaml config/config.yaml
+# 2006-2020年回测
+python scripts/fzt_final_2006_2020.py
 
-# 编辑配置文件，设置数据源和参数
-# vim config/config.yaml
+# 2021-2026年回测  
+python scripts/fzt_final_2021_2026.py
 ```
 
-## 依赖说明
+## 📊 回测结果
 
-项目主要依赖以下Python包：
+### **原始FZT公式表现（基于完整回测）：**
 
-### 核心依赖
-- **qlib (>=0.9.0)** - 微软量化投资平台
-- **lightgbm (>=4.0.0)** - 微软梯度提升框架
-- **pandas (>=2.0.0)** - 数据分析库
-- **numpy (>=1.24.0)** - 数值计算库
-- **scikit-learn (>=1.3.0)** - 机器学习库
+| 时期 | 股票数量 | 总信号数 | 成功率 | 执行时间 |
+|------|----------|----------|--------|----------|
+| **2006-2020年** | 3875只 | 687,795个 | **51.45%** | 27.03秒 |
+| **2021-2026年** | 5484只 | 496,825个 | **46.68%** | 24.43秒 |
+| **总计** | 9359只 | 1,184,620个 | **49.07%** | 51.46秒 |
 
-### 可视化
-- **matplotlib (>=3.7.0)** - 绘图库
-- **seaborn (>=0.12.0)** - 统计可视化
+### **年度成功率趋势：**
+- **2006-2020年**：46.06% - 60.89%（平均51.45%）
+- **2021-2026年**：44.53% - 48.49%（平均46.68%）
+- **整体**：接近随机水平（50%），作为独立选股策略效果有限
 
-### 开发工具
-- **jupyter (>=1.0.0)** - 交互式笔记本
-- **ipython (>=8.0.0)** - 增强的Python交互环境
+## 🔧 技术实现
 
-### 配置和工具
-- **pyyaml (>=6.0)** - YAML配置文件处理
-- **tqdm (>=4.65.0)** - 进度条显示
-
-### 测试
-- **pytest (>=7.0.0)** - 测试框架
-- **pytest-cov (>=4.0.0)** - 测试覆盖率
-
-## 配置说明
-
-### 配置文件结构
-配置文件位于 `config/config.yaml`，包含以下主要部分：
-
-```yaml
-# 数据配置
-data:
-  source: "qlib"  # 数据源：qlib/yahoo/本地
-  start_date: "2010-01-01"
-  end_date: "2023-12-31"
-  universe: "csi300"  # 股票池：csi300/csi500/all
-  
-# 特征工程
-features:
-  fzt_formula: true  # 是否使用FZT选股公式
-  technical_indicators: true  # 是否计算技术指标
-  fundamental_factors: true  # 是否使用基本面因子
-  
-# 模型训练
-model:
-  algorithm: "lightgbm"  # 算法：lightgbm/xgboost/random_forest
-  params:  # 模型参数
-    n_estimators: 100
-    learning_rate: 0.1
-    max_depth: 7
-    
-# 回测设置
-backtest:
-  initial_capital: 1000000  # 初始资金
-  commission: 0.0003  # 交易佣金
-  slippage: 0.0001  # 滑点
+### **📈 原始FZT公式**
+```python
+# 通达信公式（VAR1A-VAR6A复杂计算）
+VAR1A:=(HHV(HIGH,4)-CLOSE)/(HHV(HIGH,4)-LLV(LOW,4))*100-90;
+VAR2A:=SMA(VAR1A,4,1)+100;
+VAR3A:=(CLOSE-LLV(LOW,4))/(HHV(HIGH,4)-LLV(LOW,4))*100;
+VAR4A:=SMA(VAR3A,6,1);
+VAR5A:=SMA(VAR4A,6,1)+100;
+VAR6A:=VAR5A-VAR2A;
+砖型图:=IF(VAR6A>4,VAR6A-4,0);
+砖型图面积:=ABS(砖型图 - REF(砖型图,1));
+AA:=(REF(砖型图,1)<砖型图);
+首次多头增强:=(REF(AA,1)=0) AND (AA=1);
+砖型图面积增幅:=砖型图面积 > REF(砖型图面积,1) * 2/3;
+选股条件:=首次多头增强 AND 砖型图面积增幅;
 ```
 
-## 数据说明
+### **⚡ 向量化优化**
+- **从"分批逐股票循环"升级为"全市场向量化一次性计算"**
+- **使用`groupby('instrument') + transform`实现向量化滚动计算**
+- **避免Python级循环，全部用pandas内置函数**
+- **性能提升：1000倍以上（从数小时到几十秒）**
 
-### 数据来源
-- **Qlib数据**：需要先安装并配置Qlib数据源
-- **雅虎财经**：备用数据源，需要网络连接
-- **本地数据**：支持CSV格式的历史数据
+### **🎯 成功条件**
+- **信号条件**：原始FZT公式的"选股条件"为True
+- **成功判断**：次日收盘价 > 当日收盘价
+- **实现方式**：`df['success'] = df['next_close'] > df['close']`
 
-### 📊 数据源选项
-项目支持多种数据源配置：
+## 📋 依赖说明
 
-#### 1. 本地CSV数据（默认）
-- **位置**：`/Users/lucky/Downloads/O_DATA/`
-- **时间范围**：2021年8月 - 2026年2月（约4.5年）
-- **数据量**：充足的交易日数据（约1000+交易日/股票）
-- **格式**：CSV文件，包含OHLCV日频数据
-
-#### 2. Qlib数据（可选）
-- **测试数据集**：2005年 - 2020年（16年历史数据）
-- **完整数据集**：2007年至今（持续更新）
-- **数据质量**：经过清洗和标准化的专业量化数据
-- **安装**：需要单独下载Qlib数据包
-- **下载脚本**：`scripts/download_qlib_data.py`
-
-### 3. 混合数据模式（推荐）
-- **训练验证**：Qlib数据 (2005-2020年，16年历史数据)
-- **测试**：本地CSV数据 (2021-2026年，约5年最新数据)
-- **优势**：充足历史数据训练 + 最新数据测试，避免数据泄露
-
-### 4. 数据合并（可选）
-- **时间范围**：2005年 - 2026年（约21年完整数据）
-- **优势**：结合历史数据和最新数据
-- **用途**：长期策略验证和模型训练
-
-### Qlib数据下载
-如果使用Qlib数据，需要先下载数据包：
-
-```bash
-# 方法1: 使用下载脚本
-python scripts/download_qlib_data.py
-
-# 方法2: 手动下载
-python -c "from qlib.tests.data import GetData; GetData().qlib_data()"
-
-# 方法3: 自动下载
-python -c "import qlib; qlib.init(auto_mount=True)"
+### **核心依赖**
+```txt
+qlib>=0.9.0          # 量化投资平台
+pandas>=2.0.0        # 数据分析
+numpy>=1.24.0        # 数值计算
 ```
 
-**注意**：
-- 数据大小约0.45GB
-- 需要稳定的网络连接
-- 下载时间取决于网络速度
-
-#### 3. 数据合并（可选）
-- **时间范围**：2005年 - 2026年（约21年完整数据）
-- **优势**：结合历史数据和最新数据
-- **用途**：长期策略验证和模型训练
-
-#### 4. 数据优势
-1. **充足的数据量**：支持复杂的机器学习模型训练
-2. **完整的时间跨度**：包含不同市场周期的数据
-3. **灵活的配置**：可根据需要选择数据源
-4. **可靠的验证**：可以使用传统的训练/验证/测试划分
-
-### 数据预处理
-1. **数据清洗**：处理缺失值、异常值
-2. **特征计算**：计算FZT选股公式、技术指标、基本面因子
-3. **标签生成**：根据未来收益率生成训练标签
-4. **数据集划分**：按时间划分训练集、验证集、测试集
-
-## 使用示例
-
-### 1. 数据准备
-```bash
-# 下载数据
-python src/data_prep.py --download --start_date 2010-01-01 --end_date 2023-12-31
-
-# 特征工程
-python src/data_prep.py --features --universe csi300
+### **开发依赖**
+```txt
+matplotlib>=3.7.0    # 数据可视化
+seaborn>=0.12.0      # 统计可视化
+jupyter>=1.0.0       # 交互式笔记本
 ```
 
-### 2. 模型训练
-```bash
-# 训练模型
-python src/model_train.py --train --model lightgbm
+## 🔍 代码示例
 
-# 模型评估
-python src/model_train.py --evaluate --model_path results/models/latest.pkl
+### **主要功能模块**
+```python
+# 1. 通达信SMA递归算法（精准复刻）
+def tdx_sma_series(series_vals: np.ndarray, N: int, M: int = 1) -> np.ndarray:
+    """精准复刻通达信SMA(X,N,M)递归算法"""
+    # 实现细节...
+
+# 2. 向量化FZT计算
+def calculate_fzt_features_vectorized(df: pd.DataFrame) -> pd.DataFrame:
+    """向量化计算FZT特征（全市场一次性计算）"""
+    # 实现细节...
+
+# 3. 批量数据加载
+def load_all_stock_data_bin(data_dir: str) -> Tuple[pd.DataFrame, List[str]]:
+    """一次性加载所有股票的.bin格式数据"""
+    # 实现细节...
 ```
 
-### 3. 回测分析
-```bash
-# 运行回测
-python src/backtest.py --backtest --initial_capital 1000000
+### **执行流程**
+```python
+# 1. 初始化QLIB（使用项目内数据）
+project_root = Path(__file__).parent.parent
+data_path = str(project_root / 'data' / '2006_2020')
+qlib.init(provider_uri=data_path, region=REG_CN)
 
-# 生成报告
-python src/backtest.py --report --output results/reports/backtest_report.html
+# 2. 一次性获取全市场数据
+df, stock_codes = load_all_stock_data_bin(data_path)
+
+# 3. 向量化计算FZT特征
+df = calculate_fzt_features_vectorized(df)
+
+# 4. 筛选信号并评估成功率
+signals = df[df['fzt_signal'] == True]
+success_rate = signals['success'].mean()
 ```
 
-### 4. 完整流程
-```bash
-# 一键运行完整流程
-python src/data_prep.py --all
-python src/model_train.py --all
-python src/backtest.py --all
-```
+## 📈 性能对比
 
-## 详细目录结构说明
+| 优化阶段 | 2006-2020年 | 2021-2026年 | 性能提升 |
+|----------|-------------|-------------|----------|
+| **原始循环** | 数小时 | 数小时 | 1× |
+| **批量处理** | 数十分钟 | 数十分钟 | 10× |
+| **向量化优化** | **27.03秒** | **24.43秒** | **1000×** |
 
-### data/ 数据目录
-- **raw/** - 原始数据，从数据源下载的原始文件
-- **processed/** - 处理后的数据，经过清洗和预处理
-- **features/** - 特征数据，计算好的特征矩阵
+## 🎯 使用场景
 
-### src/ 源代码
-- **data_prep.py** - 数据准备模块，负责数据下载、清洗、特征工程
-- **model_train.py** - 模型训练模块，负责模型训练、评估、保存
-- **backtest.py** - 回测模块，负责策略回测、绩效分析
+### **1. 策略研究**
+- 验证原始FZT公式的有效性
+- 分析因子在不同市场周期的表现
+- 作为基准策略对比其他选股方法
 
-### config/ 配置目录
-- **config.yaml** - 主配置文件，所有参数集中管理
-- **config.example.yaml** - 配置文件示例
+### **2. 技术学习**
+- 学习向量化优化技术
+- 理解通达信公式实现
+- 掌握大规模数据回测方法
 
-### notebooks/ 笔记本目录
-- **analysis.ipynb** - 数据分析笔记本，用于探索性分析
+### **3. 因子开发**
+- 基于FZT公式开发衍生因子
+- 结合其他技术指标构建复合策略
+- 参数优化和敏感性分析
 
-### results/ 结果目录
-- **models/** - 训练好的模型文件
-- **predictions/** - 模型预测结果
-- **reports/** - 分析报告和可视化图表
+## 🔮 未来扩展
 
-### docs/ 文档目录
-- **methodology.md** - 方法论文档，详细说明FZT选股公式和模型原理
+### **1. 策略优化**
+- 参数调优（周期参数、阈值参数）
+- 结合其他技术指标（MACD、RSI、KDJ）
+- 多因子组合策略
 
-## 开发指南
+### **2. 功能增强**
+- 风险调整收益分析
+- 交易成本模型
+- 组合优化和仓位管理
 
-### 代码规范
-- 遵循PEP 8编码规范
-- 使用类型注解
-- 编写单元测试
+### **3. 可视化**
+- 策略表现图表
+- 因子相关性分析
+- 回撤和风险指标可视化
 
-### 版本控制
-- 使用Git进行版本控制
-- 提交信息遵循约定式提交规范
-- 使用分支进行功能开发
+## 📝 注意事项
 
-### 测试
-```bash
-# 运行所有测试
-pytest
+### **数据要求**
+- 数据文件较大（约120MB），需要足够磁盘空间
+- 需要QLIB标准数据格式（.bin文件）
+- 交易日历必须与数据时间范围匹配
 
-# 运行测试并生成覆盖率报告
-pytest --cov=src tests/
-```
+### **运行环境**
+- Python 3.8+ 环境
+- 建议8GB+内存（处理全市场数据）
+- 需要安装QLIB和相关依赖
 
-## 常见问题
+### **结果解释**
+- 原始FZT公式成功率接近随机水平（50%）
+- 需要进一步优化或结合其他因子
+- 回测结果仅供参考，不构成投资建议
 
-### Q: 如何获取Qlib数据？
-A: 参考Qlib官方文档安装和配置数据源。
+## 🤝 贡献指南
 
-### Q: 如何调整模型参数？
-A: 修改 `config/config.yaml` 中的模型参数部分。
+欢迎提交Issue和Pull Request来改进本项目：
 
-### Q: 如何添加新的特征？
-A: 在 `src/data_prep.py` 的 `calculate_features` 函数中添加特征计算逻辑。
+1. **报告问题**：在GitHub Issues中描述问题
+2. **功能建议**：提出改进建议或新功能想法
+3. **代码贡献**：遵循现有代码风格，添加测试
+4. **文档改进**：完善文档或添加使用示例
 
-### Q: 如何扩展新的机器学习算法？
-A: 在 `src/model_train.py` 的 `train_model` 函数中添加对新算法的支持。
-
-## 许可证
+## 📄 许可证
 
 本项目采用MIT许可证。详见LICENSE文件。
 
-## 贡献指南
+## 🙏 致谢
 
-欢迎提交Issue和Pull Request来改进本项目。
+- **QLIB团队**：提供优秀的量化投资平台
+- **通达信公式社区**：原始FZT公式的实现参考
+- **向量化优化参考**：用户提供的优化方案文档
+
+---
+
+**最后更新：2026-03-06**
+
+**项目状态：✅ 完成 - 精简、优化、可维护**
