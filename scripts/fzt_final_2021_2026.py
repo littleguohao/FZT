@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-FZT + ZSQSX 双公式回测脚本 (2021-2026年)
+FZT + ZSQSX 双公式回测脚本 (2021-2026年) - 参数控制版本
 
-同时计算FZT和ZSQSX公式，分析：
-1. 单独FZT公式的成功率
-2. 单独ZSQSX公式的成功率  
-3. 同时满足FZT和ZSQSX的标的成功率
+支持参数控制公式组合：
+1. 单独FZT公式（验证之前结果）
+2. 单独ZSQSX公式  
+3. 同时满足FZT和ZSQSX
 
 作者: MC
 创建日期: 2026-03-07
@@ -19,7 +19,8 @@ import numpy as np
 from pathlib import Path
 import time
 import warnings
-from typing import Optional
+from typing import Optional, Dict, Any
+import argparse
 warnings.filterwarnings('ignore')
 
 # 导入核心模块
@@ -61,12 +62,17 @@ def load_2021_2026_data(project_root: Path) -> Optional[pd.DataFrame]:
     )
 
 
-# ===================== 双公式回测 =====================
-def fzt_zsqsx_2021_2026_backtest():
-    """FZT + ZSQSX 双公式回测 (2021-2026年)"""
+# ===================== 参数化回测 =====================
+def run_backtest_with_params(
+    use_fzt: bool = True,
+    use_zsqsx: bool = True,
+    verify_fzt_only: bool = False
+) -> Dict[str, Any]:
+    """运行参数化回测"""
     try:
         print("=" * 80)
-        print("🚀 FZT + ZSQSX 双公式回测 (2021-2026年)")
+        print(f"🚀 参数化回测 (2021-2026年)")
+        print(f"   使用FZT: {use_fzt}, 使用ZSQSX: {use_zsqsx}, 验证单独FZT: {verify_fzt_only}")
         print("=" * 80)
         
         start_time = time.time()
@@ -78,137 +84,207 @@ def fzt_zsqsx_2021_2026_backtest():
         
         if df is None or df.empty:
             print("❌ 数据加载失败，无法继续")
-            return 1
+            return {'error': '数据加载失败'}
         
-        # 2. 计算FZT指标
-        print("\n🧮 计算FZT指标...")
-        fzt_start_time = time.time()
-        df_fzt = calc_brick_pattern_final(df)
-        fzt_time = time.time() - fzt_start_time
-        print(f"✅ FZT计算完成，耗时: {fzt_time:.2f} 秒")
+        # 2. 计算FZT指标（如果需要）
+        df_fzt = None
+        if use_fzt:
+            print("\n🧮 计算FZT指标...")
+            fzt_start_time = time.time()
+            df_fzt = calc_brick_pattern_final(df)
+            fzt_time = time.time() - fzt_start_time
+            print(f"✅ FZT计算完成，耗时: {fzt_time:.2f} 秒")
         
-        # 3. 计算ZSQSX指标
-        print("\n🧮 计算ZSQSX指标...")
-        zsqsx_start_time = time.time()
-        df_zsdkx = calc_zsdkx(df)
-        df_zsqsx = get_zsdkx_signal_conditions(df_zsdkx)
-        zsqsx_time = time.time() - zsqsx_start_time
-        print(f"✅ ZSQSX计算完成，耗时: {zsqsx_time:.2f} 秒")
+        # 3. 计算ZSQSX指标（如果需要）
+        df_zsqsx = None
+        if use_zsqsx:
+            print("\n🧮 计算ZSQSX指标...")
+            zsqsx_start_time = time.time()
+            df_zsdkx = calc_zsdkx(df)
+            df_zsqsx = get_zsdkx_signal_conditions(df_zsdkx)
+            zsqsx_time = time.time() - zsqsx_start_time
+            print(f"✅ ZSQSX计算完成，耗时: {zsqsx_time:.2f} 秒")
         
-        # 4. 合并两个公式的结果
-        print("\n🔗 合并FZT和ZSQSX结果...")
-        # 确保两个DataFrame有相同的索引结构
-        df_fzt = df_fzt.set_index(['instrument', 'datetime']).sort_index()
-        df_zsqsx = df_zsqsx.set_index(['instrument', 'datetime']).sort_index()
+        # 4. 合并结果
+        print("\n🔗 合并结果...")
+        df_combined = df[['instrument', 'datetime', 'close']].copy()
         
-        # 合并两个公式的信号
-        df_combined = pd.concat([
-            df_fzt[['close', '选股条件']].rename(columns={'选股条件': 'FZT_signal'}),
-            df_zsqsx[['ZSQSX_signal']]
-        ], axis=1).reset_index()
+        if df_fzt is not None:
+            df_fzt_idx = df_fzt.set_index(['instrument', 'datetime']).sort_index()
+            df_combined = df_combined.set_index(['instrument', 'datetime']).sort_index()
+            df_combined['FZT_signal'] = df_fzt_idx['选股条件']
+            df_combined = df_combined.reset_index()
+        
+        if df_zsqsx is not None:
+            df_zsqsx_idx = df_zsqsx.set_index(['instrument', 'datetime']).sort_index()
+            if 'instrument' not in df_combined.columns:  # 如果已经设置索引
+                df_combined = df_combined.set_index(['instrument', 'datetime']).sort_index()
+            else:
+                df_combined = df_combined.set_index(['instrument', 'datetime']).sort_index()
+            
+            df_combined['ZSQSX_signal'] = df_zsqsx_idx['ZSQSX_signal']
+            df_combined = df_combined.reset_index()
         
         # 5. 计算次日收益率（成功条件）
         print("📈 计算成功率...")
         df_combined['next_close'] = df_combined.groupby('instrument')['close'].transform(lambda x: x.shift(-1))
         df_combined['success'] = df_combined['next_close'] > df_combined['close']
         
-        # 6. 统计结果
+        # 6. 根据参数计算不同的成功率
         print("\n📊 回测结果统计:")
+        results = {}
         
-        # 同时满足FZT和ZSQSX
-        combined_signals = df_combined[
-            (df_combined['FZT_signal'] == True) & 
-            (df_combined['ZSQSX_signal'] == True)
-        ]
-        combined_total = len(combined_signals)
-        combined_success = combined_signals['success'].sum() if combined_total > 0 else 0
-        combined_rate = combined_success / combined_total if combined_total > 0 else 0
+        # 6.1 单独FZT公式（如果需要验证）
+        if verify_fzt_only and 'FZT_signal' in df_combined.columns:
+            fzt_signals = df_combined[df_combined['FZT_signal'] == True]
+            fzt_total = len(fzt_signals)
+            fzt_success = fzt_signals['success'].sum() if fzt_total > 0 else 0
+            fzt_rate = fzt_success / fzt_total if fzt_total > 0 else 0
+            
+            print(f"\n📈 单独FZT公式（验证）:")
+            print(f"   总信号数: {fzt_total:,}")
+            print(f"   成功信号数: {fzt_success:,}")
+            print(f"   成功率: {fzt_rate:.2%}")
+            
+            results['fzt_only'] = {
+                'total': fzt_total,
+                'success': fzt_success,
+                'rate': fzt_rate
+            }
         
-        print(f"\n🎯 同时满足FZT和ZSQSX:")
-        print(f"   总信号数: {combined_total:,}")
-        print(f"   成功信号数: {combined_success:,}")
-        print(f"   成功率: {combined_rate:.2%}")
+        # 6.2 单独ZSQSX公式
+        if use_zsqsx and not use_fzt and 'ZSQSX_signal' in df_combined.columns:
+            zsqsx_signals = df_combined[df_combined['ZSQSX_signal'] == True]
+            zsqsx_total = len(zsqsx_signals)
+            zsqsx_success = zsqsx_signals['success'].sum() if zsqsx_total > 0 else 0
+            zsqsx_rate = zsqsx_success / zsqsx_total if zsqsx_total > 0 else 0
+            
+            print(f"\n📈 单独ZSQSX公式:")
+            print(f"   总信号数: {zsqsx_total:,}")
+            print(f"   成功信号数: {zsqsx_success:,}")
+            print(f"   成功率: {zsqsx_rate:.2%}")
+            
+            results['zsqsx_only'] = {
+                'total': zsqsx_total,
+                'success': zsqsx_success,
+                'rate': zsqsx_rate
+            }
+        
+        # 6.3 同时满足FZT和ZSQSX
+        if use_fzt and use_zsqsx and 'FZT_signal' in df_combined.columns and 'ZSQSX_signal' in df_combined.columns:
+            combined_signals = df_combined[
+                (df_combined['FZT_signal'] == True) & 
+                (df_combined['ZSQSX_signal'] == True)
+            ]
+            combined_total = len(combined_signals)
+            combined_success = combined_signals['success'].sum() if combined_total > 0 else 0
+            combined_rate = combined_success / combined_total if combined_total > 0 else 0
+            
+            print(f"\n🎯 同时满足FZT和ZSQSX:")
+            print(f"   总信号数: {combined_total:,}")
+            print(f"   成功信号数: {combined_success:,}")
+            print(f"   成功率: {combined_rate:.2%}")
+            
+            results['combined'] = {
+                'total': combined_total,
+                'success': combined_success,
+                'rate': combined_rate
+            }
         
         # 7. 年度分析
-        print("\n📅 年度成功率分析:")
-        df_combined['year'] = df_combined['datetime'].dt.year
-        
-        yearly_stats = []
-        for year in sorted(df_combined['year'].unique()):
-            year_data = df_combined[df_combined['year'] == year]
+        if (use_fzt and 'FZT_signal' in df_combined.columns) or (use_zsqsx and 'ZSQSX_signal' in df_combined.columns):
+            print("\n📅 年度成功率分析:")
+            df_combined['year'] = df_combined['datetime'].dt.year
             
-            # 同时满足FZT和ZSQSX
-            combined_year = year_data[
-                (year_data['FZT_signal'] == True) & 
-                (year_data['ZSQSX_signal'] == True)
-            ]
-            combined_year_total = len(combined_year)
-            combined_year_success = combined_year['success'].sum() if combined_year_total > 0 else 0
-            combined_year_rate = combined_year_success / combined_year_total if combined_year_total > 0 else 0
+            yearly_stats = []
+            for year in sorted(df_combined['year'].unique()):
+                year_data = df_combined[df_combined['year'] == year]
+                year_stats = {'year': year}
+                
+                # 单独FZT
+                if verify_fzt_only and 'FZT_signal' in df_combined.columns:
+                    fzt_year = year_data[year_data['FZT_signal'] == True]
+                    fzt_year_total = len(fzt_year)
+                    fzt_year_success = fzt_year['success'].sum() if fzt_year_total > 0 else 0
+                    fzt_year_rate = fzt_year_success / fzt_year_total if fzt_year_total > 0 else 0
+                    year_stats['fzt_rate'] = fzt_year_rate
+                
+                # 单独ZSQSX
+                if use_zsqsx and not use_fzt and 'ZSQSX_signal' in df_combined.columns:
+                    zsqsx_year = year_data[year_data['ZSQSX_signal'] == True]
+                    zsqsx_year_total = len(zsqsx_year)
+                    zsqsx_year_success = zsqsx_year['success'].sum() if zsqsx_year_total > 0 else 0
+                    zsqsx_year_rate = zsqsx_year_success / zsqsx_year_total if zsqsx_year_total > 0 else 0
+                    year_stats['zsqsx_rate'] = zsqsx_year_rate
+                
+                # 同时满足
+                if use_fzt and use_zsqsx and 'FZT_signal' in df_combined.columns and 'ZSQSX_signal' in df_combined.columns:
+                    combined_year = year_data[
+                        (year_data['FZT_signal'] == True) & 
+                        (year_data['ZSQSX_signal'] == True)
+                    ]
+                    combined_year_total = len(combined_year)
+                    combined_year_success = combined_year['success'].sum() if combined_year_total > 0 else 0
+                    combined_year_rate = combined_year_success / combined_year_total if combined_year_total > 0 else 0
+                    year_stats['combined_rate'] = combined_year_rate
+                
+                yearly_stats.append(year_stats)
+                
+                # 打印年度结果
+                year_output = f"   {year}:"
+                if 'fzt_rate' in year_stats:
+                    year_output += f" FZT({year_stats['fzt_rate']:.2%})"
+                if 'zsqsx_rate' in year_stats:
+                    year_output += f" ZSQSX({year_stats['zsqsx_rate']:.2%})"
+                if 'combined_rate' in year_stats:
+                    year_output += f" 组合({year_stats['combined_rate']:.2%})"
+                print(year_output)
             
-            yearly_stats.append({
-                'year': year,
-                'combined_total': combined_year_total,
-                'combined_rate': combined_year_rate
-            })
-            
-            print(f"   {year}: 组合成功率 {combined_year_rate:.2%}")
+            results['yearly_stats'] = yearly_stats
         
         # 8. 股票数量统计
         print("\n📈 股票数量统计:")
+        df_combined['year'] = df_combined['datetime'].dt.year
         yearly_stock_counts = df_combined.groupby('year')['instrument'].nunique()
         for year, count in yearly_stock_counts.items():
             print(f"   {year}: {count} 只股票")
         
-        # 9. 保存结果
-        print("\n💾 保存结果...")
-        results_dir = project_root / 'results' / 'fzt_zsqsx_2021_2026'
-        results_dir.mkdir(parents=True, exist_ok=True)
-        
-        # 保存详细报告
-        report_path = results_dir / 'full_report.txt'
-        with open(report_path, 'w', encoding='utf-8') as f:
-            f.write("=" * 60 + "\n")
-            f.write("FZT + ZSQSX 双公式回测报告 (2021-2026年)\n")
-            f.write("=" * 60 + "\n\n")
-            f.write(f"回测时间范围: 2021-08-02 到 2026-02-06\n")
-            f.write(f"总数据行数: {len(df_combined):,}\n")
-            f.write(f"股票数量: {df_combined['instrument'].nunique():,}\n\n")
-            
-            f.write("同时满足FZT和ZSQSX:\n")
-            f.write(f"  总信号数: {combined_total:,}\n")
-            f.write(f"  成功信号数: {combined_success:,}\n")
-            f.write(f"  成功率: {combined_rate:.2%}\n\n")
-            
-            f.write("年度成功率:\n")
-            for stat in yearly_stats:
-                f.write(f"  {stat['year']}: {stat['combined_rate']:.2%}\n")
-            
-            f.write("\n年度股票数量:\n")
-            for year, count in yearly_stock_counts.items():
-                f.write(f"  {year}: {count} 只股票\n")
-        
-        # 保存年度统计数据
-        yearly_df = pd.DataFrame(yearly_stats)
-        yearly_df.to_csv(results_dir / 'yearly_stats.csv', index=False)
-        
-        # 保存详细数据
-        df_combined.to_csv(results_dir / 'detailed_data.csv', index=False)
+        results['yearly_stock_counts'] = yearly_stock_counts.to_dict()
         
         total_time = time.time() - start_time
         print(f"\n✅ 回测完成！总耗时: {total_time:.2f} 秒")
-        print(f"   报告已保存至: {report_path}")
         
-        return 0
+        return results
         
     except Exception as e:
         print(f"❌ 回测过程中发生错误: {e}")
         import traceback
         traceback.print_exc()
-        return 1
+        return {'error': str(e)}
+
+
+def main():
+    """主函数：解析参数并运行回测"""
+    parser = argparse.ArgumentParser(description='FZT + ZSQSX 参数化回测')
+    parser.add_argument('--fzt', action='store_true', default=True, help='使用FZT公式')
+    parser.add_argument('--no-fzt', action='store_false', dest='fzt', help='不使用FZT公式')
+    parser.add_argument('--zsqsx', action='store_true', default=True, help='使用ZSQSX公式')
+    parser.add_argument('--no-zsqsx', action='store_false', dest='zsqsx', help='不使用ZSQSX公式')
+    parser.add_argument('--verify-fzt', action='store_true', default=False, help='验证单独FZT公式结果')
+    
+    args = parser.parse_args()
+    
+    # 运行回测
+    results = run_backtest_with_params(
+        use_fzt=args.fzt,
+        use_zsqsx=args.zsqsx,
+        verify_fzt_only=args.verify_fzt
+    )
+    
+    return 0 if 'error' not in results else 1
 
 
 if __name__ == "__main__":
     # 运行回测
-    exit_code = fzt_zsqsx_2021_2026_backtest()
+    exit_code = main()
     sys.exit(exit_code)
