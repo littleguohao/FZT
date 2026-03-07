@@ -70,8 +70,9 @@ def run_backtest_with_params(
     top_n: int = 0,
     top_k: int = 4,
     volume_bias: bool = False,
-    volume_ratio: float = 1.0,
-    bias_threshold: float = 0.0
+    volume_ratio: float = 1.2,
+    bias_lower: float = -0.05,
+    bias_upper: float = 0.2
 ) -> Dict[str, Any]:
     """运行参数化回测"""
     try:
@@ -230,9 +231,9 @@ def run_backtest_with_params(
         
         # 6.5 新增：成交量比和乖离率因子筛选
         if volume_bias and use_fzt and 'FZT_signal' in df_combined.columns:
-            print(f"\n📊 新增：成交量比和乖离率因子筛选:")
-            print(f"   成交量比阈值: {volume_ratio}")
-            print(f"   乖离率阈值: {bias_threshold}")
+            print(f"\n📊 新增：成交量比和乖离率因子筛选（新条件）:")
+            print(f"   成交量比 > {volume_ratio}")
+            print(f"   乖离率在 [{bias_lower:.2%}, {bias_upper:.2%}] 之间")
             
             # 首先需要获取包含close和volume的完整数据
             if df_fzt is not None and 'close' in df_fzt.columns and 'volume' in df_fzt.columns:
@@ -246,11 +247,12 @@ def run_backtest_with_params(
                 # 添加因子
                 df_with_factors = add_volume_and_bias_factors(df_with_factors)
                 
-                # 根据因子筛选
+                # 根据因子筛选（新条件）
                 df_filtered = filter_by_volume_bias_factors(
                     df_with_factors,
                     volume_ratio_threshold=volume_ratio,
-                    bias_threshold=bias_threshold
+                    bias_lower=bias_lower,
+                    bias_upper=bias_upper
                 )
                 
                 # 合并成功数据
@@ -435,10 +437,12 @@ def main():
                        help='每天取TOP K只股票 (默认: 4)')
     parser.add_argument('--volume-bias', action='store_true', default=False,
                        help='启用成交量比和乖离率因子筛选 (默认: False)')
-    parser.add_argument('--volume-ratio', type=float, default=1.0,
-                       help='成交量比阈值 (默认: 1.0)')
-    parser.add_argument('--bias-threshold', type=float, default=0.0,
-                       help='乖离率阈值 (默认: 0.0)')
+    parser.add_argument('--volume-ratio', type=float, default=1.2,
+                       help='成交量比阈值 (默认: 1.2)')
+    parser.add_argument('--bias-lower', type=float, default=-0.05,
+                       help='乖离率下限 (默认: -0.05)')
+    parser.add_argument('--bias-upper', type=float, default=0.2,
+                       help='乖离率上限 (默认: 0.2)')
     
     args = parser.parse_args()
     
@@ -451,7 +455,8 @@ def main():
         top_k=args.top_k,
         volume_bias=args.volume_bias,
         volume_ratio=args.volume_ratio,
-        bias_threshold=args.bias_threshold
+        bias_lower=args.bias_lower,
+        bias_upper=args.bias_upper
     )
     
     return 0 if 'error' not in results else 1

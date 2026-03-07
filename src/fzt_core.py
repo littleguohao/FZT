@@ -266,19 +266,21 @@ def add_volume_and_bias_factors(df: pd.DataFrame) -> pd.DataFrame:
 
 def filter_by_volume_bias_factors(
     df: pd.DataFrame,
-    volume_ratio_threshold: float = 1.0,
-    bias_threshold: float = 0.0
+    volume_ratio_threshold: float = 1.2,
+    bias_lower: float = -0.05,
+    bias_upper: float = 0.2
 ) -> pd.DataFrame:
     """
-    根据成交量比和乖离率因子筛选信号
+    根据成交量比和乖离率因子筛选信号（新条件）
     
     筛选条件：
-    1. 成交量比 >= volume_ratio_threshold
-    2. 乖离率 >= bias_threshold
+    1. 成交量比 > volume_ratio_threshold
+    2. 乖离率在[bias_lower, bias_upper]之间
     
     :param df: 包含成交量比和乖离率因子的DataFrame
-    :param volume_ratio_threshold: 成交量比阈值（默认1.0）
-    :param bias_threshold: 乖离率阈值（默认0.0）
+    :param volume_ratio_threshold: 成交量比阈值（默认1.2）
+    :param bias_lower: 乖离率下限（默认-0.05）
+    :param bias_upper: 乖离率上限（默认0.2）
     :return: 添加了筛选信号的DataFrame
     """
     df = df.copy()
@@ -287,9 +289,9 @@ def filter_by_volume_bias_factors(
     if '成交量比' not in df.columns or '乖离率' not in df.columns:
         raise ValueError("DataFrame必须包含'成交量比'和'乖离率'列")
     
-    # 筛选条件
-    df['volume_ratio_condition'] = df['成交量比'] >= volume_ratio_threshold
-    df['bias_condition'] = df['乖离率'] >= bias_threshold
+    # 筛选条件（新条件）
+    df['volume_ratio_condition'] = df['成交量比'] > volume_ratio_threshold
+    df['bias_condition'] = df['乖离率'].between(bias_lower, bias_upper)
     
     # 组合条件
     df['volume_bias_signal'] = df['volume_ratio_condition'] & df['bias_condition']
