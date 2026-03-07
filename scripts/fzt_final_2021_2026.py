@@ -153,8 +153,8 @@ def run_backtest_with_params(
                 'rate': fzt_rate
             }
             
-            # 6.4 新增：按FZT面积排序取TOP10
-            print(f"\n🎯 新增：按FZT面积排序取TOP10:")
+            # 6.4 新增：按FZT面积排序取TOP4
+            print(f"\n🎯 新增：按FZT面积排序取TOP4:")
             
             # 首先需要获取包含砖型图面积的完整FZT数据
             if df_fzt is not None and '砖型图面积' in df_fzt.columns:
@@ -170,56 +170,56 @@ def run_backtest_with_params(
                     how='inner'
                 )
                 
-                # 按日期分组，每天取选股条件为True且面积最大的前10只
+                # 按日期分组，每天取选股条件为True且面积最大的前4只
                 def select_topk_daily(group):
                     candidates = group[group['FZT_signal']].copy()
                     if len(candidates) == 0:
                         return pd.DataFrame()  # 无信号
-                    # 按面积降序取前10
-                    return candidates.nlargest(10, '砖型图面积')
+                    # 按面积降序取前4
+                    return candidates.nlargest(4, '砖型图面积')
                 
-                top10_signals = df_merged.groupby('datetime').apply(select_topk_daily).reset_index(drop=True)
+                top4_signals = df_merged.groupby('datetime').apply(select_topk_daily).reset_index(drop=True)
                 
-                if not top10_signals.empty:
-                    top10_total = len(top10_signals)
-                    top10_success = top10_signals['success'].sum() if top10_total > 0 else 0
-                    top10_rate = top10_success / top10_total if top10_total > 0 else 0
+                if not top4_signals.empty:
+                    top4_total = len(top4_signals)
+                    top4_success = top4_signals['success'].sum() if top4_total > 0 else 0
+                    top4_rate = top4_success / top4_total if top4_total > 0 else 0
                     
-                    print(f"   TOP10总信号数: {top10_total:,}")
-                    print(f"   TOP10成功信号数: {top10_success:,}")
-                    print(f"   TOP10成功率: {top10_rate:.2%}")
+                    print(f"   TOP4总信号数: {top4_total:,}")
+                    print(f"   TOP4成功信号数: {top4_success:,}")
+                    print(f"   TOP4成功率: {top4_rate:.2%}")
                     
-                    results['fzt_top10'] = {
-                        'total': top10_total,
-                        'success': top10_success,
-                        'rate': top10_rate
+                    results['fzt_top4'] = {
+                        'total': top4_total,
+                        'success': top4_success,
+                        'rate': top4_rate
                     }
                     
-                    # 年度TOP10分析
-                    print(f"\n📅 TOP10年度成功率分析:")
-                    top10_signals['year'] = top10_signals['datetime'].dt.year
+                    # 年度TOP4分析
+                    print(f"\n📅 TOP4年度成功率分析:")
+                    top4_signals['year'] = top4_signals['datetime'].dt.year
                     
-                    yearly_top10_stats = []
-                    for year in sorted(top10_signals['year'].unique()):
-                        year_data = top10_signals[top10_signals['year'] == year]
+                    yearly_top4_stats = []
+                    for year in sorted(top4_signals['year'].unique()):
+                        year_data = top4_signals[top4_signals['year'] == year]
                         year_total = len(year_data)
                         year_success = year_data['success'].sum() if year_total > 0 else 0
                         year_rate = year_success / year_total if year_total > 0 else 0
                         
-                        yearly_top10_stats.append({
+                        yearly_top4_stats.append({
                             'year': year,
                             'total': year_total,
                             'success': year_success,
                             'rate': year_rate
                         })
                         
-                        print(f"   {year}: TOP10({year_rate:.2%})")
+                        print(f"   {year}: TOP4({year_rate:.2%})")
                     
-                    results['yearly_top10_stats'] = yearly_top10_stats
+                    results['yearly_top4_stats'] = yearly_top4_stats
                 else:
-                    print(f"   ⚠️ 没有符合条件的TOP10信号")
+                    print(f"   ⚠️ 没有符合条件的TOP4信号")
             else:
-                print(f"   ⚠️ 无法获取砖型图面积数据，跳过TOP10分析")
+                print(f"   ⚠️ 无法获取砖型图面积数据，跳过TOP4分析")
         
         # 6.2 单独ZSQSX公式 - 暂时注释掉
         # if use_zsqsx and not use_fzt and 'ZSQSX_signal' in df_combined.columns:
