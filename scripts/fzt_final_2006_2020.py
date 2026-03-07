@@ -68,7 +68,10 @@ def run_backtest_with_params(
     use_zsqsx: bool = True,
     verify_fzt_only: bool = False,
     top_n: int = 0,
-    top_k: int = 4
+    top_k: int = 4,
+    volume_bias: bool = False,
+    volume_ratio: float = 1.0,
+    bias_threshold: float = 0.0
 ) -> Dict[str, Any]:
     """运行参数化回测"""
     try:
@@ -225,6 +228,88 @@ def run_backtest_with_params(
             else:
                 print(f"\nℹ️  TOP排序因子未启用 (top_n=0)")
         
+        # 6.5 新增：成交量比和乖离率因子筛选
+        if volume_bias and use_fzt and 'FZT_signal' in df_combined.columns:
+            print(f"\n📊 新增：成交量比和乖离率因子筛选:")
+            print(f"   成交量比阈值: {volume_ratio}")
+            print(f"   乖离率阈值: {bias_threshold}")
+            
+            # 首先需要获取包含close和volume的完整数据
+            if df_fzt is not None and 'close' in df_fzt.columns and 'volume' in df_fzt.columns:
+                # 添加成交量比和乖离率因子
+                from src.fzt_core import add_volume_and_bias_factors, filter_by_volume_bias_factors
+                
+                # 获取包含close和volume的数据
+                df_with_factors = df_fzt[['instrument', 'datetime', 'close', 'volume', '选股条件']].copy()
+                df_with_factors = df_with_factors.rename(columns={'选股条件': 'FZT_signal'})
+                
+                # 添加因子
+                df_with_factors = add_volume_and_bias_factors(df_with_factors)
+                
+                # 根据因子筛选
+                df_filtered = filter_by_volume_bias_factors(
+                    df_with_factors,
+                    volume_ratio_threshold=volume_ratio,
+                    bias_threshold=bias_threshold
+                )
+                
+                # 合并成功数据
+                df_merged_vb = pd.merge(
+                    df_filtered,
+                    df_combined[['instrument', 'datetime', 'success']],
+                    on=['instrument', 'datetime'],
+                    how='inner'
+                )
+                
+                # 筛选同时满足FZT和成交量比乖离率条件的信号
+                vb_signals = df_merged_vb[
+                    (df_merged_vb['FZT_signal'] == True) & 
+                    (df_merged_vb['volume_bias_signal'] == True)
+                ]
+                
+                if not vb_signals.empty:
+                    vb_total = len(vb_signals)
+                    vb_success = vb_signals['success'].sum() if vb_total > 0 else 0
+                    vb_rate = vb_success / vb_total if vb_total > 0 else 0
+                    
+                    print(f"   FZT+成交量比乖离率总信号数: {vb_total:,}")
+                    print(f"   FZT+成交量比乖离率成功信号数: {vb_success:,}")
+                    print(f"   FZT+成交量比乖离率成功率: {vb_rate:.2%}")
+                    
+                    results['fzt_volume_bias'] = {
+                        'total': vb_total,
+                        'success': vb_success,
+                        'rate': vb_rate
+                    }
+                    
+                    # 年度分析
+                    print(f"\n📅 FZT+成交量比乖离率年度成功率分析:")
+                    vb_signals['year'] = vb_signals['datetime'].dt.year
+                    
+                    yearly_vb_stats = []
+                    for year in sorted(vb_signals['year'].unique()):
+                        year_data = vb_signals[vb_signals['year'] == year]
+                        year_total = len(year_data)
+                        year_success = year_data['success'].sum() if year_total > 0 else 0
+                        year_rate = year_success / year_total if year_total > 0 else 0
+                        
+                        yearly_vb_stats.append({
+                            'year': year,
+                            'total': year_total,
+                            'success': year_success,
+                            'rate': year_rate
+                        })
+                        
+                        print(f"   {year}: FZT+VB({year_rate:.2%})")
+                    
+                    results['yearly_volume_bias_stats'] = yearly_vb_stats
+                else:
+                    print(f"   ⚠️ 没有符合条件的FZT+成交量比乖离率信号")
+            else:
+                print(f"   ⚠️ 无法获取close和volume数据，跳过成交量比乖离率分析")
+        elif volume_bias and not use_fzt:
+            print(f"\nℹ️  成交量比乖离率因子需要FZT公式，但FZT未启用")
+        
         # 6.2 单独ZSQSX公式
         if use_zsqsx and not use_fzt and 'ZSQSX_signal' in df_combined.columns:
             zsqsx_signals = df_combined[df_combined['ZSQSX_signal'] == True]
@@ -339,6 +424,12 @@ def main():
                        help='按FZT面积排序取TOP N (0表示不启用，默认: 0)')
     parser.add_argument('--top-k', type=int, default=4, 
                        help='每天取TOP K只股票 (默认: 4)')
+    parser.add_argument('--volume-bias', action='store_true', default=False,
+                       help='启用成交量比和乖离率因子筛选 (默认: False)')
+    parser.add_argument('--volume-ratio', type=float, default=1.0,
+                       help='成交量比阈值 (默认: 1.0)')
+    parser.add_argument('--bias-threshold', type=float, default=0.0,
+                       help='乖离率阈值 (默认: 0.0)')
     
     args = parser.parse_args()
     
@@ -348,7 +439,10 @@ def main():
         use_zsqsx=args.zsqsx,
         verify_fzt_only=args.verify_fzt,
         top_n=args.top_n,
-        top_k=args.top_k
+        top_k=args.top_k,
+        volume_bias=args.volume_bias,
+        volume_ratio=args.volume_ratio,
+        bias_threshold=args.bias_threshold
     )
     
     return 0 if 'error' not in results else 1

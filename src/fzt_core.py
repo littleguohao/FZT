@@ -228,3 +228,70 @@ def test_fzt_core():
 
 if __name__ == "__main__":
     test_fzt_core()
+
+
+# ===================== 新增：成交量比和乖离率因子 =====================
+def add_volume_and_bias_factors(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    为已有数据添加成交量比和乖离率列
+    
+    假设df已包含 instrument, datetime, close, volume 列
+    
+    因子定义：
+    1. 成交量比 = volume / MA(volume, 5)
+    2. 乖离率 = (close - MA(close, 60)) / MA(close, 60)
+    
+    :param df: 包含股票数据的DataFrame
+    :return: 添加了成交量比和乖离率因子的DataFrame
+    """
+    df = df.copy()
+    
+    # 按股票分组计算
+    grouped = df.groupby('instrument')
+    
+    # 1. 成交量比（5日均量）
+    df['volume_ma5'] = grouped['volume'].transform(lambda x: x.rolling(5, min_periods=5).mean())
+    df['成交量比'] = df['volume'] / df['volume_ma5']
+    df['成交量比'] = df['成交量比'].replace([np.inf, -np.inf], np.nan)
+    
+    # 2. 乖离率（60日均线）
+    df['ma60'] = grouped['close'].transform(lambda x: x.rolling(60, min_periods=60).mean())
+    df['乖离率'] = (df['close'] - df['ma60']) / df['ma60']
+    
+    # 清理中间列
+    df.drop(columns=['volume_ma5', 'ma60'], inplace=True)
+    
+    return df
+
+
+def filter_by_volume_bias_factors(
+    df: pd.DataFrame,
+    volume_ratio_threshold: float = 1.0,
+    bias_threshold: float = 0.0
+) -> pd.DataFrame:
+    """
+    根据成交量比和乖离率因子筛选信号
+    
+    筛选条件：
+    1. 成交量比 >= volume_ratio_threshold
+    2. 乖离率 >= bias_threshold
+    
+    :param df: 包含成交量比和乖离率因子的DataFrame
+    :param volume_ratio_threshold: 成交量比阈值（默认1.0）
+    :param bias_threshold: 乖离率阈值（默认0.0）
+    :return: 添加了筛选信号的DataFrame
+    """
+    df = df.copy()
+    
+    # 确保包含必要的因子列
+    if '成交量比' not in df.columns or '乖离率' not in df.columns:
+        raise ValueError("DataFrame必须包含'成交量比'和'乖离率'列")
+    
+    # 筛选条件
+    df['volume_ratio_condition'] = df['成交量比'] >= volume_ratio_threshold
+    df['bias_condition'] = df['乖离率'] >= bias_threshold
+    
+    # 组合条件
+    df['volume_bias_signal'] = df['volume_ratio_condition'] & df['bias_condition']
+    
+    return df
