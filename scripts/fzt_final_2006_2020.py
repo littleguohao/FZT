@@ -72,7 +72,12 @@ def run_backtest_with_params(
     volume_bias: bool = False,
     volume_ratio: float = 1.2,
     bias_lower: float = -0.05,
-    bias_upper: float = 0.2
+    bias_upper: float = 0.2,
+    rsi_obv: bool = False,
+    rsi_period: int = 14,
+    rsi_low: float = 40,
+    rsi_high: float = 70,
+    obv_lookback: int = 20
 ) -> Dict[str, Any]:
     """运行参数化回测"""
     try:
@@ -312,6 +317,87 @@ def run_backtest_with_params(
         elif volume_bias and not use_fzt:
             print(f"\nℹ️  成交量比乖离率因子需要FZT公式，但FZT未启用")
         
+        # 6.6 新增：RSI和OBV因子筛选
+        if rsi_obv and use_fzt and 'FZT_signal' in df_combined.columns:
+            print(f"\n📊 新增：RSI和OBV因子筛选:")
+            print(f"   RSI({rsi_period})在 [{rsi_low}, {rsi_high}] 之间")
+            print(f"   OBV创{obv_lookback}日新高")
+            
+            # 首先需要获取包含close和volume的完整数据
+            if df_fzt is not None and 'close' in df_fzt.columns and 'volume' in df_fzt.columns:
+                # 添加RSI和OBV因子
+                from src.fzt_core import filter_by_rsi_obv_factors
+                
+                # 获取包含close和volume的数据
+                df_with_factors = df_fzt[['instrument', 'datetime', 'close', 'volume', '选股条件']].copy()
+                df_with_factors = df_with_factors.rename(columns={'选股条件': 'FZT_signal'})
+                
+                # 根据因子筛选
+                df_filtered = filter_by_rsi_obv_factors(
+                    df_with_factors,
+                    rsi_period=rsi_period,
+                    rsi_low=rsi_low,
+                    rsi_high=rsi_high,
+                    obv_lookback=obv_lookback
+                )
+                
+                # 合并成功数据
+                df_merged_ro = pd.merge(
+                    df_filtered,
+                    df_combined[['instrument', 'datetime', 'success']],
+                    on=['instrument', 'datetime'],
+                    how='inner'
+                )
+                
+                # 筛选同时满足FZT和RSI-OBV条件的信号
+                ro_signals = df_merged_ro[
+                    (df_merged_ro['FZT_signal'] == True) & 
+                    (df_merged_ro['rsi_obv_signal'] == True)
+                ]
+                
+                if not ro_signals.empty:
+                    ro_total = len(ro_signals)
+                    ro_success = ro_signals['success'].sum() if ro_total > 0 else 0
+                    ro_rate = ro_success / ro_total if ro_total > 0 else 0
+                    
+                    print(f"   FZT+RSI-OBV总信号数: {ro_total:,}")
+                    print(f"   FZT+RSI-OBV成功信号数: {ro_success:,}")
+                    print(f"   FZT+RSI-OBV成功率: {ro_rate:.2%}")
+                    
+                    results['fzt_rsi_obv'] = {
+                        'total': ro_total,
+                        'success': ro_success,
+                        'rate': ro_rate
+                    }
+                    
+                    # 年度分析
+                    print(f"\n📅 FZT+RSI-OBV年度成功率分析:")
+                    ro_signals['year'] = ro_signals['datetime'].dt.year
+                    
+                    yearly_ro_stats = []
+                    for year in sorted(ro_signals['year'].unique()):
+                        year_data = ro_signals[ro_signals['year'] == year]
+                        year_total = len(year_data)
+                        year_success = year_data['success'].sum() if year_total > 0 else 0
+                        year_rate = year_success / year_total if year_total > 0 else 0
+                        
+                        yearly_ro_stats.append({
+                            'year': year,
+                            'total': year_total,
+                            'success': year_success,
+                            'rate': year_rate
+                        })
+                        
+                        print(f"   {year}: FZT+RO({year_rate:.2%})")
+                    
+                    results['yearly_rsi_obv_stats'] = yearly_ro_stats
+                else:
+                    print(f"   ⚠️ 没有符合条件的FZT+RSI-OBV信号")
+            else:
+                print(f"   ⚠️ 无法获取close和volume数据，跳过RSI-OBV分析")
+        elif rsi_obv and not use_fzt:
+            print(f"\nℹ️  RSI-OBV因子需要FZT公式，但FZT未启用")
+        
         # 6.2 单独ZSQSX公式
         if use_zsqsx and not use_fzt and 'ZSQSX_signal' in df_combined.columns:
             zsqsx_signals = df_combined[df_combined['ZSQSX_signal'] == True]
@@ -434,6 +520,16 @@ def main():
                        help='乖离率下限 (默认: -0.05)')
     parser.add_argument('--bias-upper', type=float, default=0.2,
                        help='乖离率上限 (默认: 0.2)')
+    parser.add_argument('--rsi-obv', action='store_true', default=False,
+                       help='启用RSI和OBV因子筛选 (默认: False)')
+    parser.add_argument('--rsi-period', type=int, default=14,
+                       help='RSI计算周期 (默认: 14)')
+    parser.add_argument('--rsi-low', type=float, default=40,
+                       help='RSI下限 (默认: 40)')
+    parser.add_argument('--rsi-high', type=float, default=70,
+                       help='RSI上限 (默认: 70)')
+    parser.add_argument('--obv-lookback', type=int, default=20,
+                       help='OBV创新高回看周期 (默认: 20)')
     
     args = parser.parse_args()
     
@@ -447,7 +543,12 @@ def main():
         volume_bias=args.volume_bias,
         volume_ratio=args.volume_ratio,
         bias_lower=args.bias_lower,
-        bias_upper=args.bias_upper
+        bias_upper=args.bias_upper,
+        rsi_obv=args.rsi_obv,
+        rsi_period=args.rsi_period,
+        rsi_low=args.rsi_low,
+        rsi_high=args.rsi_high,
+        obv_lookback=args.obv_lookback
     )
     
     return 0 if 'error' not in results else 1
