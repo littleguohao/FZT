@@ -152,6 +152,74 @@ def run_backtest_with_params(
                 'success': fzt_success,
                 'rate': fzt_rate
             }
+            
+            # 6.4 新增：按FZT面积排序取TOP10
+            print(f"\n🎯 新增：按FZT面积排序取TOP10:")
+            
+            # 首先需要获取包含砖型图面积的完整FZT数据
+            if df_fzt is not None and '砖型图面积' in df_fzt.columns:
+                # 合并面积数据
+                df_fzt_with_area = df_fzt[['instrument', 'datetime', '选股条件', '砖型图面积']].copy()
+                df_fzt_with_area = df_fzt_with_area.rename(columns={'选股条件': 'FZT_signal'})
+                
+                # 合并成功数据
+                df_merged = pd.merge(
+                    df_fzt_with_area,
+                    df_combined[['instrument', 'datetime', 'success']],
+                    on=['instrument', 'datetime'],
+                    how='inner'
+                )
+                
+                # 按日期分组，每天取选股条件为True且面积最大的前10只
+                def select_topk_daily(group):
+                    candidates = group[group['FZT_signal']].copy()
+                    if len(candidates) == 0:
+                        return pd.DataFrame()  # 无信号
+                    # 按面积降序取前10
+                    return candidates.nlargest(10, '砖型图面积')
+                
+                top10_signals = df_merged.groupby('datetime').apply(select_topk_daily).reset_index(drop=True)
+                
+                if not top10_signals.empty:
+                    top10_total = len(top10_signals)
+                    top10_success = top10_signals['success'].sum() if top10_total > 0 else 0
+                    top10_rate = top10_success / top10_total if top10_total > 0 else 0
+                    
+                    print(f"   TOP10总信号数: {top10_total:,}")
+                    print(f"   TOP10成功信号数: {top10_success:,}")
+                    print(f"   TOP10成功率: {top10_rate:.2%}")
+                    
+                    results['fzt_top10'] = {
+                        'total': top10_total,
+                        'success': top10_success,
+                        'rate': top10_rate
+                    }
+                    
+                    # 年度TOP10分析
+                    print(f"\n📅 TOP10年度成功率分析:")
+                    top10_signals['year'] = top10_signals['datetime'].dt.year
+                    
+                    yearly_top10_stats = []
+                    for year in sorted(top10_signals['year'].unique()):
+                        year_data = top10_signals[top10_signals['year'] == year]
+                        year_total = len(year_data)
+                        year_success = year_data['success'].sum() if year_total > 0 else 0
+                        year_rate = year_success / year_total if year_total > 0 else 0
+                        
+                        yearly_top10_stats.append({
+                            'year': year,
+                            'total': year_total,
+                            'success': year_success,
+                            'rate': year_rate
+                        })
+                        
+                        print(f"   {year}: TOP10({year_rate:.2%})")
+                    
+                    results['yearly_top10_stats'] = yearly_top10_stats
+                else:
+                    print(f"   ⚠️ 没有符合条件的TOP10信号")
+            else:
+                print(f"   ⚠️ 无法获取砖型图面积数据，跳过TOP10分析")
         
         # 6.2 单独ZSQSX公式 - 暂时注释掉
         # if use_zsqsx and not use_fzt and 'ZSQSX_signal' in df_combined.columns:
