@@ -10,7 +10,7 @@ ZSQSX公式核心计算模块（精简版）
 - MA2 = EMA(CLOSE,13)
 - DKS = (MA(CLOSE,M1)+MA(CLOSE,M2)+MA(CLOSE,M3)+MA(CLOSE,M4))/4
 
-选股条件：当日的QSX > DKS 且 close > DKS
+选股条件：当日的QSX > DKS（优化版，只保留QSX>DKS）
 
 作者: MC
 创建日期: 2026-03-07
@@ -124,21 +124,20 @@ def get_zsdkx_signal_conditions(
     df: pd.DataFrame
 ) -> pd.DataFrame:
     """
-    根据ZSDKX指标生成信号条件
+    根据ZSDKX指标生成信号条件（优化版）
     
-    选股条件：当日的QSX > DKS 且 close > DKS
+    选股条件：当日的QSX > DKS（只保留QSX>DKS，不对close和DKS做判断）
     
     :param df: 包含ZSDKX指标的DataFrame，必须有QSX, DKS, close列
     :return: 添加了信号条件的DataFrame
     """
     df_signal = df.copy()
     
-    # 选股条件：QSX > DKS 且 close > DKS
+    # 选股条件：只保留QSX > DKS
     df_signal['QSX_gt_DKS'] = df_signal['QSX'] > df_signal['DKS']
-    df_signal['close_gt_DKS'] = df_signal['close'] > df_signal['DKS']
     
-    # 组合信号
-    df_signal['ZSQSX_signal'] = df_signal['QSX_gt_DKS'] & df_signal['close_gt_DKS']
+    # 组合信号（只使用QSX > DKS）
+    df_signal['ZSQSX_signal'] = df_signal['QSX_gt_DKS']
     
     return df_signal
 
