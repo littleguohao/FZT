@@ -19,8 +19,7 @@ from .fzt_core import (
     tdx_sma_series,
     tdx_sma,
     calc_brick_pattern_final,
-    calculate_fzt_features_vectorized,
-    test_fzt_core
+    calculate_fzt_features_vectorized
 )
 
 # 导出ZSQSX核心模块
@@ -28,15 +27,13 @@ from .zsqsx_core import (
     calc_zsdkx,
     calculate_zsdkx_features_vectorized,
     get_zsdkx_signal_conditions,
-    analyze_zsdkx_performance,
-    test_zsdkx_core
+    analyze_zsdkx_performance
 )
 
 # 导出公共数据加载模块
 from .data_loader import (
     load_stock_data_qlib,
-    get_instruments_from_file,
-    test_public_loader
+    get_instruments_from_file
 )
 
 __all__ = [
@@ -45,17 +42,14 @@ __all__ = [
     "tdx_sma",
     "calc_brick_pattern_final",
     "calculate_fzt_features_vectorized",
-    "test_fzt_core",
     
     # ZSQSX核心函数
     "calc_zsdkx",
     "calculate_zsdkx_features_vectorized",
     "get_zsdkx_signal_conditions",
     "analyze_zsdkx_performance",
-    "test_zsdkx_core",
     
     # 公共数据加载函数
     "load_stock_data_qlib",
-    "get_instruments_from_file",
-    "test_public_loader"
+    "get_instruments_from_file"
 ]

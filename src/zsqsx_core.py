@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-ZSQSX公式核心计算模块
+ZSQSX公式核心计算模块（精简版）
 
 包含ZSDKX公式的向量化实现，支持参数自定义。
 严格对齐通达信逻辑：
@@ -10,14 +10,15 @@ ZSQSX公式核心计算模块
 - MA2 = EMA(CLOSE,13)
 - DKS = (MA(CLOSE,M1)+MA(CLOSE,M2)+MA(CLOSE,M3)+MA(CLOSE,M4))/4
 
+选股条件：当日的QSX > DKS 且 收盘价 > DKS
+
 作者: MC
 创建日期: 2026-03-07
-参考: 用户提供的向量化实现
 """
 
 import pandas as pd
 import numpy as np
-from typing import Optional, Tuple, Dict, Any
+from typing import Optional, Dict, Any
 import warnings
 warnings.filterwarnings('ignore')
 
@@ -29,24 +30,16 @@ def calc_zsdkx(
     M3: int = 57,
     M4: int = 114,
     target_start_date: Optional[str] = None,
-    target_end_date: Optional[str] = None,
-    output_stats: bool = True
+    target_end_date: Optional[str] = None
 ) -> pd.DataFrame:
     """
     计算ZSDKX公式指标（QSX, MA1, MA2, DKS），支持参数自定义。
-    严格对齐通达信逻辑：
-    - QSX = EMA(EMA(CLOSE,10),10)
-    - MA1 = MA(CLOSE,60)
-    - MA2 = EMA(CLOSE,13)
-    - DKS = (MA(CLOSE,M1)+MA(CLOSE,M2)+MA(CLOSE,M3)+MA(CLOSE,M4))/4
-    仅当四个MA均有效时（非NaN）才有值，否则为NaN。
-
+    
     :param df_raw: 原始数据，必须包含 instrument, datetime, close 列
     :param M1, M2, M3, M4: 四个均线周期参数，默认值与通达信缺省值一致
     :param target_start_date: 目标时间段起始，格式 'YYYY-MM-DD'，仅返回该时段结果
     :param target_end_date: 目标时间段结束，格式 'YYYY-MM-DD'
-    :param output_stats: 是否输出统计信息
-    :return: 包含所有新指标的结果表，列包括 instrument, datetime, QSX, MA1, MA2, DKS
+    :return: 包含所有新指标的结果表，列包括 instrument, datetime, close, QSX, MA1, MA2, DKS
     """
     # 1. 数据校验与预处理
     required_cols = ['instrument', 'datetime', 'close']
@@ -86,7 +79,7 @@ def calc_zsdkx(
     # 计算均值时，只对没有缺失的行赋值，其余保持NaN
     df['DKS'] = np.where(has_nan, np.nan, df[ma_cols].mean(axis=1))
 
-    # 7. 删除临时中间列（可选，保留QSX等核心指标）
+    # 7. 删除临时中间列
     df.drop(columns=['ema10_1'] + ma_cols, inplace=True, errors='ignore')
 
     # 8. 筛选目标时间段
@@ -95,23 +88,9 @@ def calc_zsdkx(
     if target_end_date:
         df = df[df['datetime'] <= pd.to_datetime(target_end_date)]
 
-    # 9. 保留核心列
-    core_cols = ['instrument', 'datetime', 'QSX', 'MA1', 'MA2', 'DKS']
+    # 9. 保留核心列（包含close用于选股条件）
+    core_cols = ['instrument', 'datetime', 'close', 'QSX', 'MA1', 'MA2', 'DKS']
     df_result = df[core_cols].copy()
-
-    # 10. 输出统计信息
-    if output_stats:
-        print("=" * 50)
-        print("📊 ZSDKX指标计算统计")
-        print("=" * 50)
-        print(f"总样本数：{len(df_result):,}")
-        print(f"股票数：{df_result['instrument'].nunique():,}")
-        print(f"日期范围：{df_result['datetime'].min()} 至 {df_result['datetime'].max()}")
-        print("\n指标非空统计：")
-        for col in ['QSX', 'MA1', 'MA2', 'DKS']:
-            non_null = df_result[col].notna().sum()
-            print(f" {col}: {non_null:,} 个有效值 ({non_null/len(df_result):.1%})")
-        print("=" * 50)
 
     return df_result
 
@@ -137,43 +116,29 @@ def calculate_zsdkx_features_vectorized(
         M3=M3,
         M4=M4,
         target_start_date=None,
-        target_end_date=None,
-        output_stats=False
+        target_end_date=None
     )
 
 
 def get_zsdkx_signal_conditions(
-    df: pd.DataFrame,
-    qsx_threshold: float = 0.0,
-    ma1_threshold: float = 0.0,
-    ma2_threshold: float = 0.0,
-    dks_threshold: float = 0.0
+    df: pd.DataFrame
 ) -> pd.DataFrame:
     """
     根据ZSDKX指标生成信号条件
     
-    :param df: 包含ZSDKX指标的DataFrame
-    :param qsx_threshold: QSX阈值
-    :param ma1_threshold: MA1阈值
-    :param ma2_threshold: MA2阈值
-    :param dks_threshold: DKS阈值
+    选股条件：当日的QSX > DKS 且 收盘价 > DKS
+    
+    :param df: 包含ZSDKX指标的DataFrame，必须有QSX, DKS, close列
     :return: 添加了信号条件的DataFrame
     """
     df_signal = df.copy()
     
-    # 基础信号条件
-    df_signal['QSX_above'] = df_signal['QSX'] > qsx_threshold
-    df_signal['MA1_above'] = df_signal['MA1'] > ma1_threshold
-    df_signal['MA2_above'] = df_signal['MA2'] > ma2_threshold
-    df_signal['DKS_above'] = df_signal['DKS'] > dks_threshold
+    # 选股条件：QSX > DKS 且 close > DKS
+    df_signal['QSX_gt_DKS'] = df_signal['QSX'] > df_signal['DKS']
+    df_signal['close_gt_DKS'] = df_signal['close'] > df_signal['DKS']
     
     # 组合信号
-    df_signal['ZSQSX_signal'] = (
-        df_signal['QSX_above'] &
-        df_signal['MA1_above'] &
-        df_signal['MA2_above'] &
-        df_signal['DKS_above']
-    )
+    df_signal['ZSQSX_signal'] = df_signal['QSX_gt_DKS'] & df_signal['close_gt_DKS']
     
     return df_signal
 
@@ -217,56 +182,3 @@ def analyze_zsdkx_performance(
         'signal_dates': signals['datetime'].unique().tolist(),
         'instruments': signals['instrument'].unique().tolist()
     }
-
-
-def test_zsdkx_core():
-    """测试ZSDKX核心函数"""
-    print("🧪 测试ZSDKX核心函数...")
-    
-    # 生成模拟数据（3只股票，120天）
-    dates = pd.date_range("2023-01-01", periods=120, freq="D")
-    instruments = ["600519", "000001", "000858"]
-    test_data = []
-    for inst in instruments:
-        price = 100 + np.cumsum(np.random.randn(120) * 2)
-        for i, dt in enumerate(dates):
-            test_data.append({
-                "instrument": inst,
-                "datetime": dt,
-                "close": price[i]
-            })
-    test_df = pd.DataFrame(test_data)
-    
-    print("  测试calc_zsdkx函数...")
-    try:
-        result = calc_zsdkx(
-            test_df,
-            M1=14, M2=28, M3=57, M4=114,
-            target_start_date="2023-03-01",
-            output_stats=True
-        )
-        print(f"   计算成功，结果形状: {result.shape}")
-    except Exception as e:
-        print(f"   测试失败: {e}")
-    
-    print("  测试calculate_zsdkx_features_vectorized函数...")
-    try:
-        df_vectorized = calculate_zsdkx_features_vectorized(test_df)
-        print(f"   向量化计算成功，结果形状: {df_vectorized.shape}")
-    except Exception as e:
-        print(f"   测试失败: {e}")
-    
-    print("  测试get_zsdkx_signal_conditions函数...")
-    try:
-        df_with_signals = get_zsdkx_signal_conditions(result)
-        signal_count = df_with_signals['ZSQSX_signal'].sum()
-        print(f"   信号条件生成成功，信号数量: {signal_count}")
-    except Exception as e:
-        print(f"   测试失败: {e}")
-    
-    print("✅ ZSDKX核心函数测试完成")
-    return True
-
-
-if __name__ == "__main__":
-    test_zsdkx_core()
