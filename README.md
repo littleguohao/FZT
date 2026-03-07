@@ -1,6 +1,6 @@
 # FZT选股公式回测系统
 
-基于原始FZT公式（VAR1A-VAR6A复杂计算）的量化回测系统，覆盖2006-2026年共20.5年A股数据。
+基于原始FZT公式（VAR1A-VAR6A复杂计算）的量化回测系统，覆盖2006-2026年共20.5年A股数据。支持多种技术因子组合和参数化控制。
 
 ## 🎯 项目特点
 
@@ -20,9 +20,15 @@
 
 ### **🔧 模块化设计**
 - **清晰职责分离**：公共函数在`src/`中，私有配置在脚本中
-- **极度精简**：只有5个Python文件（2脚本 + 3模块）
+- **极度精简**：只有6个Python文件（2脚本 + 4模块）
 - **高度可重用**：`src/`中的模块可以被其他项目使用
 - **完全自包含**：每个脚本包含完整的数据配置
+
+### **🎛️ 参数化控制**
+- **公式组合控制**：FZT、ZSQSX公式独立启用/禁用
+- **技术因子控制**：成交量比、乖离率、RSI、OBV因子独立控制
+- **筛选参数控制**：所有阈值和参数可配置
+- **TOP排序控制**：按FZT面积排序取TOP N/K
 
 ## 📁 项目结构
 
@@ -38,6 +44,8 @@ FZT_Quant/                              # 主目录
 └── src/                                # ✅ 核心模块目录
     ├── __init__.py                     # 模块导出文件
     ├── fzt_core.py                     # ✅ FZT核心计算模块（通用函数）
+    ├── zsqsx_core.py                   # ✅ ZSQSX公式计算模块
+    ├── factors.py                      # ✅ 技术因子计算模块
     └── data_loader.py                  # ✅ 公共数据加载模块（不包含私有数据路径）
 ```
 
@@ -77,11 +85,32 @@ pip install -r requirements.txt
 
 ### **4. 运行回测**
 ```bash
-# 2006-2020年回测
-python scripts/fzt_final_2006_2020.py
+# 查看帮助
+python scripts/fzt_final_2006_2020.py --help
 
-# 2021-2026年回测  
-python scripts/fzt_final_2021_2026.py
+# 基础回测（单独FZT公式）
+python scripts/fzt_final_2006_2020.py --verify-fzt
+
+# 组合回测（FZT + ZSQSX）
+python scripts/fzt_final_2006_2020.py --fzt --zsqsx --verify-fzt
+
+# 添加技术因子
+python scripts/fzt_final_2006_2020.py --verify-fzt --volume-ratio-enable --bias-enable
+
+# TOP排序筛选
+python scripts/fzt_final_2006_2020.py --verify-fzt --top-n 4 --top-k 4
+
+# 复杂组合
+python scripts/fzt_final_2006_2020.py \
+  --fzt \
+  --zsqsx \
+  --verify-fzt \
+  --volume-ratio-enable \
+  --bias-enable \
+  --rsi-enable \
+  --obv-enable \
+  --top-n 4 \
+  --top-k 4
 ```
 
 ## 📊 回测结果
@@ -90,13 +119,27 @@ python scripts/fzt_final_2021_2026.py
 
 | 时期 | 股票数量 | 总信号数 | 成功率 | 执行时间 |
 |------|----------|----------|--------|----------|
-| **2006-2020年** | 3875只 | 687,795个 | **51.45%** | 27.03秒 |
-| **2021-2026年** | 5484只 | 496,825个 | **46.68%** | 24.43秒 |
-| **总计** | 9359只 | 1,184,620个 | **49.07%** | 51.46秒 |
+| **2006-2020年** | 3875只 | 52,295个 | **52.90%** | 30秒 |
+| **2021-2026年** | 5484只 | 573,237个 | **46.75%** | 35秒 |
+| **总计** | 9359只 | 625,532个 | **47.25%** | 65秒 |
+
+### **技术因子筛选效果（2006-2020年）：**
+
+| 因子组合 | 总信号数 | 成功率 | 信号减少 |
+|----------|----------|--------|----------|
+| **单独FZT** | 52,295 | **52.90%** | - |
+| **FZT+成交量比** | 13,845 | 50.12% | -73.5% |
+| **FZT+乖离率** | 22,156 | 51.23% | -57.6% |
+| **FZT+RSI** | 20,418 | 50.89% | -61.0% |
+| **FZT+OBV** | 2,894 | 48.48% | -94.5% |
+| **FZT+成交量比乖离率** | 7,934 | 48.89% | -84.8% |
+| **FZT+RSI-OBV** | 5,897 | 49.62% | -88.7% |
+| **FZT+ZSQSX** | 11,720 | 50.84% | -77.6% |
+| **FZT+TOP4** | 10,419 | 53.41% | -80.1% |
 
 ### **年度成功率趋势：**
-- **2006-2020年**：46.06% - 60.89%（平均51.45%）
-- **2021-2026年**：44.53% - 48.49%（平均46.68%）
+- **2006-2020年**：43.07% - 65.62%（平均52.90%）
+- **2021-2026年**：44.68% - 48.74%（平均46.75%）
 - **整体**：接近随机水平（50%），作为独立选股策略效果有限
 
 ## 🏗️ 模块设计
@@ -114,7 +157,40 @@ def calc_brick_pattern_final(df_raw: pd.DataFrame, ...) -> pd.DataFrame
 def calculate_fzt_features_vectorized(df: pd.DataFrame) -> pd.DataFrame
 ```
 
-### **2. `src/data_loader.py` - 公共数据加载模块**
+### **2. `src/zsqsx_core.py` - ZSQSX公式计算模块**
+```python
+# ZSQSX指标计算
+def calc_zsdkx(df, M1=14, M2=28, M3=57, M4=114) -> pd.DataFrame
+
+# ZSQSX选股信号条件
+def get_zsdkx_signal_conditions(df_zsdkx) -> pd.DataFrame
+```
+
+### **3. `src/factors.py` - 技术因子计算模块**
+```python
+# 成交量比因子
+def add_volume_ratio_factor(df) -> pd.DataFrame
+def filter_by_volume_ratio_factor(df, volume_ratio_threshold=1.2) -> pd.DataFrame
+
+# 乖离率因子
+def add_bias_factor(df) -> pd.DataFrame
+def filter_by_bias_factor(df, bias_lower=-0.05, bias_upper=0.2) -> pd.DataFrame
+
+# RSI因子
+def add_rsi_factor(df, rsi_period=14) -> pd.DataFrame
+def filter_by_rsi_factor(df, rsi_low=40, rsi_high=70) -> pd.DataFrame
+
+# OBV因子
+def add_obv_factor(df) -> pd.DataFrame
+def filter_by_obv_factor(df, obv_lookback=20) -> pd.DataFrame
+
+# 组合因子（向后兼容）
+def add_volume_and_bias_factors(df) -> pd.DataFrame
+def filter_by_volume_bias_factors(df, ...) -> pd.DataFrame
+def filter_by_rsi_obv_factors(df, ...) -> pd.DataFrame
+```
+
+### **4. `src/data_loader.py` - 公共数据加载模块**
 ```python
 # 通用QLIB数据加载（不包含私有数据路径）
 def load_stock_data_qlib(data_dir, instruments, calc_start, calc_end, ...)
@@ -142,6 +218,8 @@ def load_2021_2026_data(project_root):
 - **公共函数在模块中**：可重用、不依赖具体数据路径
 - **私有配置在脚本中**：自包含、完整的数据配置
 - **清晰的职责分离**：通用功能 vs 具体实现
+- **参数化控制**：所有功能通过命令行参数控制
+- **模块化扩展**：易于添加新的技术因子或策略公式
 
 ## 📈 性能对比
 
@@ -168,6 +246,24 @@ AA:=(REF(砖型图,1)<砖型图);
 首次多头增强:=(REF(AA,1)=0) AND (AA=1);
 砖型图面积增幅:=砖型图面积 > REF(砖型图面积,1) * 2/3;
 选股条件:=首次多头增强 AND 砖型图面积增幅;
+```
+
+### **📊 ZSQSX公式**
+```python
+# 趋势线公式
+QSX = EMA(EMA(CLOSE,10),10)
+MA1 = MA(CLOSE,60)
+MA2 = EMA(CLOSE,13)
+DKS = (MA(CLOSE,M1)+MA(CLOSE,M2)+MA(CLOSE,M3)+MA(CLOSE,M4))/4
+选股条件: QSX > DKS
+```
+
+### **🔧 技术因子定义**
+```python
+# 成交量比 = volume / MA(volume, 5)
+# 乖离率 = (close - MA(close, 60)) / MA(close, 60)
+# RSI(14)在[40,70]之间
+# OBV创20日新高
 ```
 
 ### **⚡ 向量化优化**
@@ -208,10 +304,56 @@ python scripts/fzt_final_2006_2020.py
 python scripts/fzt_final_2021_2026.py
 ```
 
-### **2. 使用核心模块（在其他项目中）**
+### **2. 参数化控制示例**
+```bash
+# 查看完整参数帮助
+python scripts/fzt_final_2006_2020.py --help
+
+# 公式组合控制
+python scripts/fzt_final_2006_2020.py --fzt --no-zsqsx --verify-fzt  # 只使用FZT
+python scripts/fzt_final_2006_2020.py --no-fzt --zsqsx              # 只使用ZSQSX
+python scripts/fzt_final_2006_2020.py --fzt --zsqsx --verify-fzt    # 同时使用FZT和ZSQSX
+
+# 技术因子控制
+python scripts/fzt_final_2006_2020.py --verify-fzt --volume-ratio-enable  # 成交量比因子
+python scripts/fzt_final_2006_2020.py --verify-fzt --bias-enable          # 乖离率因子
+python scripts/fzt_final_2006_2020.py --verify-fzt --rsi-enable           # RSI因子
+python scripts/fzt_final_2006_2020.py --verify-fzt --obv-enable           # OBV因子
+
+# 参数调整
+python scripts/fzt_final_2006_2020.py --verify-fzt --volume-ratio-enable --volume-ratio-threshold 1.5
+python scripts/fzt_final_2006_2020.py --verify-fzt --bias-enable --bias-lower -0.1 --bias-upper 0.3
+python scripts/fzt_final_2006_2020.py --verify-fzt --rsi-enable --rsi-low 30 --rsi-high 80
+python scripts/fzt_final_2006_2020.py --verify-fzt --obv-enable --obv-lookback 30
+
+# TOP排序控制
+python scripts/fzt_final_2006_2020.py --verify-fzt --top-n 4 --top-k 4    # TOP4筛选
+python scripts/fzt_final_2006_2020.py --verify-fzt --top-n 10 --top-k 10  # TOP10筛选
+
+# 复杂组合
+python scripts/fzt_final_2006_2020.py \
+  --fzt \
+  --zsqsx \
+  --verify-fzt \
+  --volume-ratio-enable \
+  --bias-enable \
+  --rsi-enable \
+  --obv-enable \
+  --top-n 4 \
+  --top-k 4
+```
+
+### **3. 使用核心模块（在其他项目中）**
 ```python
 # 导入公共模块
 from src.fzt_core import calc_brick_pattern_final, tdx_sma
+from src.zsqsx_core import calc_zsdkx, get_zsdkx_signal_conditions
+from src.factors import (
+    add_volume_ratio_factor, filter_by_volume_ratio_factor,
+    add_bias_factor, filter_by_bias_factor,
+    add_rsi_factor, filter_by_rsi_factor,
+    add_obv_factor, filter_by_obv_factor
+)
 from src.data_loader import load_stock_data_qlib, get_instruments_from_file
 
 # 加载数据（使用你自己的数据路径）
@@ -226,6 +368,22 @@ df = load_stock_data_qlib(
 
 # 计算FZT信号
 df_with_fzt = calc_brick_pattern_final(df)
+
+# 计算ZSQSX信号
+df_zsdkx = calc_zsdkx(df)
+df_zsqsx = get_zsdkx_signal_conditions(df_zsdkx)
+
+# 添加技术因子
+df_with_factors = add_volume_ratio_factor(df)
+df_with_factors = add_bias_factor(df_with_factors)
+df_with_factors = add_rsi_factor(df_with_factors, rsi_period=14)
+df_with_factors = add_obv_factor(df_with_factors)
+
+# 筛选信号
+df_filtered = filter_by_volume_ratio_factor(df_with_factors, volume_ratio_threshold=1.2)
+df_filtered = filter_by_bias_factor(df_filtered, bias_lower=-0.05, bias_upper=0.2)
+df_filtered = filter_by_rsi_factor(df_filtered, rsi_low=40, rsi_high=70)
+df_filtered = filter_by_obv_factor(df_filtered, obv_lookback=20)
 
 # 使用通达信SMA算法
 sma_result = tdx_sma(data_series, N=4, M=1)
@@ -266,33 +424,51 @@ def my_backtest():
 - 验证原始FZT公式的有效性
 - 分析因子在不同市场周期的表现
 - 作为基准策略对比其他选股方法
+- 研究技术因子组合效果
 
 ### **2. 技术学习**
 - 学习向量化优化技术
 - 理解通达信公式实现
 - 掌握大规模数据回测方法
+- 学习参数化控制系统设计
 
 ### **3. 因子开发**
 - 基于FZT公式开发衍生因子
 - 结合其他技术指标构建复合策略
 - 参数优化和敏感性分析
+- 多因子组合策略研究
+
+### **4. 参数化研究**
+- 研究不同参数组合的效果
+- 分析因子阈值对信号质量的影响
+- 优化TOP排序参数
+- 探索最优因子组合
 
 ## 🔮 未来扩展
 
 ### **1. 策略优化**
 - 参数调优（周期参数、阈值参数）
-- 结合其他技术指标（MACD、RSI、KDJ）
+- 结合其他技术指标（MACD、KDJ、布林带等）
 - 多因子组合策略
+- 机器学习因子挖掘
 
 ### **2. 功能增强**
 - 风险调整收益分析
 - 交易成本模型
 - 组合优化和仓位管理
+- 实时信号监控
 
 ### **3. 可视化**
 - 策略表现图表
 - 因子相关性分析
 - 回撤和风险指标可视化
+- 参数敏感性热力图
+
+### **4. 扩展因子**
+- 添加更多技术因子（MACD、KDJ、布林带等）
+- 添加基本面因子（PE、PB、ROE等）
+- 添加市场情绪因子
+- 添加行业轮动因子
 
 ## 📝 注意事项
 
@@ -308,7 +484,8 @@ def my_backtest():
 
 ### **结果解释**
 - 原始FZT公式成功率接近随机水平（50%）
-- 需要进一步优化或结合其他因子
+- 技术因子筛选会大幅减少信号数量，成功率变化不大
+- TOP排序筛选可能提高成功率，但信号数量减少
 - 回测结果仅供参考，不构成投资建议
 
 ## 🤝 贡献指南
@@ -334,4 +511,6 @@ def my_backtest():
 
 **最后更新：2026-03-07**
 
-**项目状态：✅ 完成 - 极度精简、模块化、可维护**
+**项目状态：✅ 完成 - 极度精简、模块化、参数化、可维护**
+
+**版本：v2.0 - 参数化控制版本**
