@@ -121,13 +121,7 @@ def fzt_zsqsx_2006_2020_backtest():
         fzt_success = fzt_signals['success'].sum() if fzt_total > 0 else 0
         fzt_rate = fzt_success / fzt_total if fzt_total > 0 else 0
         
-        # 6.2 单独ZSQSX公式
-        zsqsx_signals = df_combined[df_combined['ZSQSX_signal'] == True]
-        zsqsx_total = len(zsqsx_signals)
-        zsqsx_success = zsqsx_signals['success'].sum() if zsqsx_total > 0 else 0
-        zsqsx_rate = zsqsx_success / zsqsx_total if zsqsx_total > 0 else 0
-        
-        # 6.3 同时满足FZT和ZSQSX
+        # 6.2 同时满足FZT和ZSQSX
         combined_signals = df_combined[
             (df_combined['FZT_signal'] == True) & 
             (df_combined['ZSQSX_signal'] == True)
@@ -140,11 +134,6 @@ def fzt_zsqsx_2006_2020_backtest():
         print(f"   总信号数: {fzt_total:,}")
         print(f"   成功信号数: {fzt_success:,}")
         print(f"   成功率: {fzt_rate:.2%}")
-        
-        print(f"\n📈 单独ZSQSX公式:")
-        print(f"   总信号数: {zsqsx_total:,}")
-        print(f"   成功信号数: {zsqsx_success:,}")
-        print(f"   成功率: {zsqsx_rate:.2%}")
         
         print(f"\n🎯 同时满足FZT和ZSQSX:")
         print(f"   总信号数: {combined_total:,}")
@@ -165,13 +154,7 @@ def fzt_zsqsx_2006_2020_backtest():
             fzt_year_success = fzt_year['success'].sum() if fzt_year_total > 0 else 0
             fzt_year_rate = fzt_year_success / fzt_year_total if fzt_year_total > 0 else 0
             
-            # 单独ZSQSX
-            zsqsx_year = year_data[year_data['ZSQSX_signal'] == True]
-            zsqsx_year_total = len(zsqsx_year)
-            zsqsx_year_success = zsqsx_year['success'].sum() if zsqsx_year_total > 0 else 0
-            zsqsx_year_rate = zsqsx_year_success / zsqsx_year_total if zsqsx_year_total > 0 else 0
-            
-            # 同时满足
+            # 同时满足FZT和ZSQSX
             combined_year = year_data[
                 (year_data['FZT_signal'] == True) & 
                 (year_data['ZSQSX_signal'] == True)
@@ -184,13 +167,11 @@ def fzt_zsqsx_2006_2020_backtest():
                 'year': year,
                 'fzt_total': fzt_year_total,
                 'fzt_rate': fzt_year_rate,
-                'zsqsx_total': zsqsx_year_total,
-                'zsqsx_rate': zsqsx_year_rate,
                 'combined_total': combined_year_total,
                 'combined_rate': combined_year_rate
             })
             
-            print(f"   {year}: FZT({fzt_year_rate:.2%}), ZSQSX({zsqsx_year_rate:.2%}), 组合({combined_year_rate:.2%})")
+            print(f"   {year}: FZT({fzt_year_rate:.2%}), 组合({combined_year_rate:.2%})")
         
         # 8. 保存结果
         print("\n💾 保存结果...")
@@ -212,11 +193,6 @@ def fzt_zsqsx_2006_2020_backtest():
             f.write(f"  成功信号数: {fzt_success:,}\n")
             f.write(f"  成功率: {fzt_rate:.2%}\n\n")
             
-            f.write("单独ZSQSX公式:\n")
-            f.write(f"  总信号数: {zsqsx_total:,}\n")
-            f.write(f"  成功信号数: {zsqsx_success:,}\n")
-            f.write(f"  成功率: {zsqsx_rate:.2%}\n\n")
-            
             f.write("同时满足FZT和ZSQSX:\n")
             f.write(f"  总信号数: {combined_total:,}\n")
             f.write(f"  成功信号数: {combined_success:,}\n")
@@ -224,7 +200,7 @@ def fzt_zsqsx_2006_2020_backtest():
             
             f.write("年度成功率:\n")
             for stat in yearly_stats:
-                f.write(f"  {stat['year']}: FZT({stat['fzt_rate']:.2%}), ZSQSX({stat['zsqsx_rate']:.2%}), 组合({stat['combined_rate']:.2%})\n")
+                f.write(f"  {stat['year']}: FZT({stat['fzt_rate']:.2%}), 组合({stat['combined_rate']:.2%})\n")
         
         # 保存年度统计数据
         yearly_df = pd.DataFrame(yearly_stats)
