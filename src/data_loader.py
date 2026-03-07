@@ -81,9 +81,16 @@ def load_stock_data_qlib(
         df_reset = df_reset.rename(columns=column_mapping)
         
         # 前复权处理（基于FZT参考实现）
+        # 注意：如果factor是NaN，则跳过复权处理
         for price_col in ['open', 'high', 'low', 'close']:
             if price_col in df_reset.columns and 'factor' in df_reset.columns:
-                df_reset[price_col] = df_reset[price_col] * df_reset['factor']
+                # 检查factor是否有有效值
+                if not df_reset['factor'].isna().all():
+                    df_reset[price_col] = df_reset[price_col] * df_reset['factor']
+                else:
+                    # factor全是NaN，使用原始价格
+                    print(f"⚠️  factor字段全是NaN，跳过前复权处理")
+                    break
         
         # 筛选目标时间段（如果指定）
         if target_start:
