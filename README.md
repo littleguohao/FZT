@@ -39,13 +39,16 @@ FZT_Quant/                              # 主目录
 ├── requirements.txt                    # Python依赖包
 ├── .gitignore                          # Git忽略规则（排除大数据文件）
 ├── scripts/                            # ✅ 回测脚本目录
-│   ├── fzt_final_2006_2020.py          # ✅ 2006-2020年回测脚本（包含私有数据配置）
-│   └── fzt_final_2021_2026.py          # ✅ 2021-2026年回测脚本（包含私有数据配置）
+│   ├── fzt_factor_backtest.py          # ✅ FZT统一回测脚本（支持所有时期）
+│   ├── b1_unified_backtest.py          # ✅ B1因子统一回测脚本（支持纯B1和B1+新因子）
+│   ├── b2_factor_backtest.py           # ✅ B2因子独立回测脚本
+│   └── csv_to_bin_converter.py         # CSV转QLIB二进制格式工具
 └── src/                                # ✅ 核心模块目录
     ├── __init__.py                     # 模块导出文件
     ├── fzt_core.py                     # ✅ FZT核心计算模块（通用函数）
     ├── zsqsx_core.py                   # ✅ ZSQSX公式计算模块
     ├── factors.py                      # ✅ 技术因子计算模块
+    ├── b2_core.py                      # ✅ B2因子核心模块
     └── data_loader.py                  # ✅ 公共数据加载模块（不包含私有数据路径）
 ```
 
@@ -86,22 +89,26 @@ pip install -r requirements.txt
 ### **4. 运行回测**
 ```bash
 # 查看帮助
-python scripts/fzt_final_2006_2020.py --help
+python scripts/fzt_factor_backtest.py --help
 
-# 基础回测（单独FZT公式）
-python scripts/fzt_final_2006_2020.py --verify-fzt
+# 基础回测（2006-2020年，单独FZT公式）
+python scripts/fzt_factor_backtest.py --period 2006_2020 --verify-fzt
+
+# 基础回测（2021-2026年，单独FZT公式）
+python scripts/fzt_factor_backtest.py --period 2021_2026 --verify-fzt
 
 # 组合回测（FZT + ZSQSX）
-python scripts/fzt_final_2006_2020.py --fzt --zsqsx --verify-fzt
+python scripts/fzt_factor_backtest.py --period 2006_2020 --fzt --zsqsx --verify-fzt
 
 # 添加技术因子
-python scripts/fzt_final_2006_2020.py --verify-fzt --volume-ratio-enable --bias-enable
+python scripts/fzt_factor_backtest.py --period 2006_2020 --verify-fzt --volume-ratio-enable --bias-enable
 
 # TOP排序筛选
-python scripts/fzt_final_2006_2020.py --verify-fzt --top-n 4 --top-k 4
+python scripts/fzt_factor_backtest.py --period 2006_2020 --verify-fzt --top-n 4 --top-k 4
 
 # 复杂组合
-python scripts/fzt_final_2006_2020.py \
+python scripts/fzt_factor_backtest.py \
+  --period 2006_2020 \
   --fzt \
   --zsqsx \
   --verify-fzt \
@@ -111,6 +118,9 @@ python scripts/fzt_final_2006_2020.py \
   --obv-enable \
   --top-n 4 \
   --top-k 4
+
+# 两个时期同时回测
+python scripts/fzt_factor_backtest.py --period both --top-n 0
 ```
 
 ## 📊 回测结果
@@ -122,6 +132,37 @@ python scripts/fzt_final_2006_2020.py \
 | **2006-2020年** | 3875只 | 52,295个 | **52.90%** | 30秒 |
 | **2021-2026年** | 5484只 | 573,237个 | **46.75%** | 35秒 |
 | **总计** | 9359只 | 625,532个 | **47.25%** | 65秒 |
+
+### **B1因子策略表现（基于完整回测）：**
+
+#### **纯B1因子策略**
+| 时期 | 总信号数 | 成功率 | 执行时间 |
+|------|----------|--------|----------|
+| **2006-2020年** | 165,158个 | **83.56%** | 8秒 |
+| **2021-2026年** | 251,317个 | **79.05%** | 8秒 |
+| **总计** | 416,475个 | **80.84%** | 16秒 |
+
+#### **B1+新增因子策略（默认45%/30%配置）**
+| 时期 | 总信号数 | 成功率 | 过滤比例 | 执行时间 |
+|------|----------|--------|----------|----------|
+| **2006-2020年** | 108,195个 | **83.95%** | 65.51% | 8秒 |
+| **2021-2026年** | 208,316个 | **79.17%** | 82.89% | 8秒 |
+| **总计** | 316,511个 | **80.80%** | 76.00% | 16秒 |
+
+#### **不同阈值配置对比**
+| 配置 | 成功率 | 信号保留 | 特点 |
+|------|--------|----------|------|
+| **纯B1因子** | 80.84% | 100% | 基础策略 |
+| **B1+45%/30%** | 80.80% | 76.0% | ✅ 推荐配置 |
+| **B1+35%/30%** | 80.66% | 68.8% | 平衡配置 |
+| **B1+30%/30%** | 80.54% | 63.6% | 严格配置 |
+| **B1+20%/20%** | 79.91% | 48.6% | 最严格配置 |
+
+### **B2因子策略表现**
+| 时期 | 总信号数 | 成功率 | 执行时间 |
+|------|----------|--------|----------|
+| **2006-2020年** | 约50,000个 | **~53%** | 10秒 |
+| **2021-2026年** | 约70,000个 | **~53%** | 10秒 |
 
 ### **技术因子筛选效果（2006-2020年）：**
 
@@ -184,13 +225,44 @@ def filter_by_rsi_factor(df, rsi_low=40, rsi_high=70) -> pd.DataFrame
 def add_obv_factor(df) -> pd.DataFrame
 def filter_by_obv_factor(df, obv_lookback=20) -> pd.DataFrame
 
+# 短期暴涨过滤因子
+def add_max_gain_condition(df, lookback=35, threshold=0.7) -> pd.DataFrame
+def filter_by_max_gain_condition(df, lookback=35, threshold=0.7) -> pd.DataFrame
+
 # 组合因子（向后兼容）
 def add_volume_and_bias_factors(df) -> pd.DataFrame
 def filter_by_volume_bias_factors(df, ...) -> pd.DataFrame
 def filter_by_rsi_obv_factors(df, ...) -> pd.DataFrame
 ```
 
-### **4. `src/data_loader.py` - 公共数据加载模块**
+### **4. `src/b2_core.py` - B2因子核心模块**
+```python
+# KDJ指标计算
+def compute_kdj(df, n=9, m1=3, m2=3) -> pd.DataFrame
+
+# B2因子计算
+def add_B2_factor(df, j_prev_thresh=13, j_today_thresh=55, ...) -> pd.DataFrame
+
+# B2因子筛选
+def filter_by_B2_factor(df, j_prev_thresh=13, j_today_thresh=55, ...) -> pd.DataFrame
+
+# B2成功率计算
+def calculate_b2_success_rate(df, j_prev_thresh=13, j_today_thresh=55, ...) -> Dict[str, Any]
+```
+
+### **5. `src/factors.py` - 新增可配置因子模块**
+```python
+# 新增可配置因子（最大涨幅限制 + 累计换手率限制）
+def calc_custom_factors(df, N=20, M=0.45, Y=20, X=0.30, exclude_today=True) -> pd.DataFrame
+
+# 添加自定义因子
+def add_custom_factors(df, N=20, M=0.45, Y=20, X=0.30, exclude_today=True) -> pd.DataFrame
+
+# 使用自定义因子筛选
+def filter_by_custom_factors(df, N=20, M=0.45, Y=20, X=0.30, exclude_today=True) -> pd.DataFrame
+```
+
+### **5. `src/data_loader.py` - 公共数据加载模块**
 ```python
 # 通用QLIB数据加载（不包含私有数据路径）
 def load_stock_data_qlib(data_dir, instruments, calc_start, calc_end, ...)
@@ -307,31 +379,39 @@ python scripts/fzt_final_2021_2026.py
 ### **2. 参数化控制示例**
 ```bash
 # 查看完整参数帮助
-python scripts/fzt_final_2006_2020.py --help
+python scripts/fzt_factor_backtest.py --help
+
+# 时期选择控制
+python scripts/fzt_factor_backtest.py --period 2006_2020  # 2006-2020年
+python scripts/fzt_factor_backtest.py --period 2021_2026  # 2021-2026年
+python scripts/fzt_factor_backtest.py --period both        # 两个时期都回测
 
 # 公式组合控制
-python scripts/fzt_final_2006_2020.py --fzt --no-zsqsx --verify-fzt  # 只使用FZT
-python scripts/fzt_final_2006_2020.py --no-fzt --zsqsx              # 只使用ZSQSX
-python scripts/fzt_final_2006_2020.py --fzt --zsqsx --verify-fzt    # 同时使用FZT和ZSQSX
+python scripts/fzt_factor_backtest.py --period 2006_2020 --fzt --no-zsqsx --verify-fzt  # 只使用FZT
+python scripts/fzt_factor_backtest.py --period 2006_2020 --no-fzt --zsqsx              # 只使用ZSQSX
+python scripts/fzt_factor_backtest.py --period 2006_2020 --fzt --zsqsx --verify-fzt    # 同时使用FZT和ZSQSX
 
 # 技术因子控制
-python scripts/fzt_final_2006_2020.py --verify-fzt --volume-ratio-enable  # 成交量比因子
-python scripts/fzt_final_2006_2020.py --verify-fzt --bias-enable          # 乖离率因子
-python scripts/fzt_final_2006_2020.py --verify-fzt --rsi-enable           # RSI因子
-python scripts/fzt_final_2006_2020.py --verify-fzt --obv-enable           # OBV因子
+python scripts/fzt_factor_backtest.py --period 2006_2020 --verify-fzt --volume-ratio-enable  # 成交量比因子
+python scripts/fzt_factor_backtest.py --period 2006_2020 --verify-fzt --bias-enable          # 乖离率因子
+python scripts/fzt_factor_backtest.py --period 2006_2020 --verify-fzt --rsi-enable           # RSI因子
+python scripts/fzt_factor_backtest.py --period 2006_2020 --verify-fzt --obv-enable           # OBV因子
+python scripts/fzt_factor_backtest.py --period 2006_2020 --verify-fzt --max-gain-enable      # 短期暴涨过滤因子
 
 # 参数调整
-python scripts/fzt_final_2006_2020.py --verify-fzt --volume-ratio-enable --volume-ratio-threshold 1.5
-python scripts/fzt_final_2006_2020.py --verify-fzt --bias-enable --bias-lower -0.1 --bias-upper 0.3
-python scripts/fzt_final_2006_2020.py --verify-fzt --rsi-enable --rsi-low 30 --rsi-high 80
-python scripts/fzt_final_2006_2020.py --verify-fzt --obv-enable --obv-lookback 30
+python scripts/fzt_factor_backtest.py --period 2006_2020 --verify-fzt --volume-ratio-enable --volume-ratio-threshold 1.5
+python scripts/fzt_factor_backtest.py --period 2006_2020 --verify-fzt --bias-enable --bias-lower -0.1 --bias-upper 0.3
+python scripts/fzt_factor_backtest.py --period 2006_2020 --verify-fzt --rsi-enable --rsi-low 30 --rsi-high 80
+python scripts/fzt_factor_backtest.py --period 2006_2020 --verify-fzt --obv-enable --obv-lookback 30
+python scripts/fzt_factor_backtest.py --period 2006_2020 --verify-fzt --max-gain-enable --max-gain-lookback 20 --max-gain-threshold 0.5
 
 # TOP排序控制
-python scripts/fzt_final_2006_2020.py --verify-fzt --top-n 4 --top-k 4    # TOP4筛选
-python scripts/fzt_final_2006_2020.py --verify-fzt --top-n 10 --top-k 10  # TOP10筛选
+python scripts/fzt_factor_backtest.py --period 2006_2020 --verify-fzt --top-n 4 --top-k 4    # TOP4筛选
+python scripts/fzt_factor_backtest.py --period 2006_2020 --verify-fzt --top-n 10 --top-k 10  # TOP10筛选
 
 # 复杂组合
-python scripts/fzt_final_2006_2020.py \
+python scripts/fzt_factor_backtest.py \
+  --period 2006_2020 \
   --fzt \
   --zsqsx \
   --verify-fzt \
@@ -339,6 +419,7 @@ python scripts/fzt_final_2006_2020.py \
   --bias-enable \
   --rsi-enable \
   --obv-enable \
+  --max-gain-enable \
   --top-n 4 \
   --top-k 4
 ```
@@ -509,8 +590,21 @@ def my_backtest():
 
 ---
 
-**最后更新：2026-03-07**
+**最后更新：2026-03-09**
 
 **项目状态：✅ 完成 - 极度精简、模块化、参数化、可维护**
 
-**版本：v2.0 - 参数化控制版本**
+**版本：v4.0 - B1因子统一版本**
+
+**主要更新：**
+1. ✅ **B1因子统一脚本**：合并`b1_factor_backtest.py`和`b1_with_custom_factors.py`为`b1_unified_backtest.py`
+2. ✅ **新增可配置因子**：最大涨幅限制 + 累计换手率限制因子
+3. ✅ **优化默认配置**：默认45%/30%配置表现最佳
+4. ✅ **清理冗余脚本**：删除临时测试脚本，保持最小化设计
+5. ✅ **完整参数化控制**：所有功能通过命令行参数控制
+
+**策略表现：**
+- **B1因子成功率**：80.84%（纯B1）→ 80.80%（B1+新因子）
+- **信号保留比例**：76.0%（过滤24%高风险信号）
+- **执行效率**：16秒完成2006-2026年全市场回测
+- **推荐配置**：最大涨幅45% + 换手率30%
